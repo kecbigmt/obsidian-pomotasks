@@ -3,13 +3,16 @@ import { App, Plugin, PluginSettingTab, Setting, TFile, ItemView, WorkspaceLeaf,
 interface ChecklistPluginSettings {
 	autoUpdate: boolean;
 	tomatoEmoji: string;
+	halfTomatoEmoji: string;
+	quarterTomatoEmoji: string;
 }
 
 const DEFAULT_SETTINGS: ChecklistPluginSettings = {
 	autoUpdate: true,
-	tomatoEmoji: '🍅'
+	tomatoEmoji: '🍅',
+	halfTomatoEmoji: '🍓',
+	quarterTomatoEmoji: '🍒'
 };
-
 
 const CHECKLIST_VIEW_TYPE = 'checklist-view';
 
@@ -114,6 +117,8 @@ class ChecklistView extends ItemView {
 		let checklistItems: { task: string, path: string, line: string }[] = [];
 		let tomatoCount = 0;
 		const tomatoEmoji = this.plugin.settings.tomatoEmoji;
+		const halfTomatoEmoji = this.plugin.settings.halfTomatoEmoji;
+		const quarterTomatoEmoji = this.plugin.settings.quarterTomatoEmoji;
 
 		for (const file of files) {
 			try {
@@ -124,6 +129,8 @@ class ChecklistView extends ItemView {
 					if (line.match(/^\s*-\s*\[\s\]/)) {
 						checklistItems.push({ task: line.trim(), path: file.path, line });
 						tomatoCount += (line.match(new RegExp(tomatoEmoji, 'g')) || []).length;
+						tomatoCount += (line.match(new RegExp(halfTomatoEmoji, 'g')) || []).length * 0.5;
+						tomatoCount += (line.match(new RegExp(quarterTomatoEmoji, 'g')) || []).length * 0.25;
 					}
 				}
 			} catch (error) {
@@ -197,12 +204,36 @@ class ChecklistSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Tomato Emoji')
-			.setDesc('Emoji to use for representing a Pomodoro session.')
+			.setDesc('Emoji to use for representing a full Pomodoro session.')
 			.addText(text => text
 				.setPlaceholder('Enter emoji')
 				.setValue(this.plugin.settings.tomatoEmoji)
 				.onChange(async (value) => {
 					this.plugin.settings.tomatoEmoji = value || '🍅';
+					await this.plugin.saveSettings();
+					this.plugin.updateActiveChecklistView();
+				}));
+
+		new Setting(containerEl)
+			.setName('Half Tomato Emoji')
+			.setDesc('Emoji to use for representing half a Pomodoro session.')
+			.addText(text => text
+				.setPlaceholder('Enter emoji')
+				.setValue(this.plugin.settings.halfTomatoEmoji)
+				.onChange(async (value) => {
+					this.plugin.settings.halfTomatoEmoji = value || '🍓';
+					await this.plugin.saveSettings();
+					this.plugin.updateActiveChecklistView();
+				}));
+
+		new Setting(containerEl)
+			.setName('Quarter Tomato Emoji')
+			.setDesc('Emoji to use for representing a quarter of a Pomodoro session.')
+			.addText(text => text
+				.setPlaceholder('Enter emoji')
+				.setValue(this.plugin.settings.quarterTomatoEmoji)
+				.onChange(async (value) => {
+					this.plugin.settings.quarterTomatoEmoji = value || '🍒';
 					await this.plugin.saveSettings();
 					this.plugin.updateActiveChecklistView();
 				}));

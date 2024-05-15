@@ -24,21 +24,10 @@ export default class ChecklistPlugin extends Plugin {
 		this.addSettingTab(new ChecklistSettingTab(this.app, this));
 
 		if (this.settings.autoUpdate) {
-			this.registerEvent(
-				this.app.vault.on('modify', () => {
-					this.updateActiveChecklistView();
-				})
-			);
-			this.registerEvent(
-				this.app.vault.on('create', () => {
-					this.updateActiveChecklistView();
-				})
-			);
-			this.registerEvent(
-				this.app.vault.on('delete', () => {
-					this.updateActiveChecklistView();
-				})
-			);
+			const updateHandler = this.debounce(() => this.updateActiveChecklistView(), 300);
+			this.registerEvent(this.app.vault.on('modify', updateHandler));
+			this.registerEvent(this.app.vault.on('create', updateHandler));
+			this.registerEvent(this.app.vault.on('delete', updateHandler));
 		}
 
 		this.activateView();
@@ -78,6 +67,14 @@ export default class ChecklistPlugin extends Plugin {
 	async saveSettings() {
 		await this.saveData(this.settings);
 	}
+
+	debounce(func: () => void, wait: number): () => void {
+		let timeout: number;
+		return () => {
+			clearTimeout(timeout);
+			timeout = window.setTimeout(func, wait);
+		};
+	}
 }
 
 class ChecklistView extends ItemView {
@@ -115,14 +112,18 @@ class ChecklistView extends ItemView {
 		let tomatoCount = 0;
 
 		for (const file of files) {
-			const content = await this.plugin.app.vault.read(file);
-			const lines = content.split('\n');
+			try {
+				const content = await this.plugin.app.vault.read(file);
+				const lines = content.split('\n');
 
-			for (const line of lines) {
-				if (line.match(/^\s*-\s*\[\s\]/)) {
-					checklistItems.push({ task: line.trim(), path: file.path, line });
-					tomatoCount += (line.match(/🍅/g) || []).length;
+				for (const line of lines) {
+					if (line.match(/^\s*-\s*\[\s\]/)) {
+						checklistItems.push({ task: line.trim(), path: file.path, line });
+						tomatoCount += (line.match(/🍅/g) || []).length;
+					}
 				}
+			} catch (error) {
+				console.error(`Error reading file ${file.path}:`, error);
 			}
 		}
 
@@ -131,28 +132,36 @@ class ChecklistView extends ItemView {
 
 		const checklistContent = this.checklistContainer.createDiv({ cls: 'checklist-list' });
 		
-		checklistItems.forEach(async (item) => {
-			const itemEl = checklistContent.createEl('label', { cls: 'checklist-item' });
+		for (const item of checklistItems) {
+			await this.renderChecklistItem(item, checklistContent);
+		}
+	}
 
-			const checkbox = itemEl.createEl('input');
-			checkbox.type = 'checkbox';
-			checkbox.onclick = async () => {
-				await this.markItemAsDone(item);
-			};
+	async renderChecklistItem(item: { task: string, path: string, line: string }, container: HTMLElement) {
+		const itemEl = container.createEl('label', { cls: 'checklist-item' });
 
-			const markdownContainer = itemEl.createDiv();
-			await MarkdownRenderer.render(this.plugin.app, item.task.slice(6), markdownContainer, item.path, this);
-		});
+		const checkbox = itemEl.createEl('input');
+		checkbox.type = 'checkbox';
+		checkbox.onclick = async () => {
+			await this.markItemAsDone(item);
+		};
+
+		const markdownContainer = itemEl.createDiv();
+		await MarkdownRenderer.render(this.plugin.app, item.task.slice(6), markdownContainer, item.path, this);
 	}
 
 	async markItemAsDone(item: { task: string, path: string, line: string }) {
-		const file = this.plugin.app.vault.getAbstractFileByPath(item.path) as TFile;
+		try {
+			const file = this.plugin.app.vault.getAbstractFileByPath(item.path) as TFile;
 
-		if (file) {
-			const content = await this.plugin.app.vault.read(file);
-			const updatedContent = content.replace(item.line, item.line.replace('[ ]', '[x]'));
-			await this.plugin.app.vault.modify(file, updatedContent);
-			this.updateChecklist();
+			if (file) {
+				const content = await this.plugin.app.vault.read(file);
+				const updatedContent = content.replace(item.line, item.line.replace('[ ]', '[x]'));
+				await this.plugin.app.vault.modify(file, updatedContent);
+				this.updateChecklist();
+			}
+		} catch (error) {
+			console.error(`Error updating file ${item.path}:`, error);
 		}
 	}
 }

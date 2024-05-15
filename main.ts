@@ -5,14 +5,19 @@ interface ChecklistPluginSettings {
 	tomatoEmoji: string;
 	halfTomatoEmoji: string;
 	quarterTomatoEmoji: string;
+	workDuration: number; // in minutes
+	breakDuration: number; // in minutes
 }
 
 const DEFAULT_SETTINGS: ChecklistPluginSettings = {
 	autoUpdate: true,
 	tomatoEmoji: '🍅',
 	halfTomatoEmoji: '🍓',
-	quarterTomatoEmoji: '🍒'
+	quarterTomatoEmoji: '🍒',
+	workDuration: 25,
+	breakDuration: 5
 };
+
 
 const CHECKLIST_VIEW_TYPE = 'checklist-view';
 
@@ -115,10 +120,8 @@ class ChecklistView extends ItemView {
 	async updateChecklist() {
 		const files = this.plugin.app.vault.getMarkdownFiles();
 		let checklistItems: { task: string, path: string, line: string }[] = [];
-		let tomatoCount = 0;
-		const tomatoEmoji = this.plugin.settings.tomatoEmoji;
-		const halfTomatoEmoji = this.plugin.settings.halfTomatoEmoji;
-		const quarterTomatoEmoji = this.plugin.settings.quarterTomatoEmoji;
+		let totalTomatoCount = 0;
+		const { tomatoEmoji, halfTomatoEmoji, quarterTomatoEmoji, workDuration, breakDuration } = this.plugin.settings;
 
 		for (const file of files) {
 			try {
@@ -128,9 +131,9 @@ class ChecklistView extends ItemView {
 				for (const line of lines) {
 					if (line.match(/^\s*-\s*\[\s\]/)) {
 						checklistItems.push({ task: line.trim(), path: file.path, line });
-						tomatoCount += (line.match(new RegExp(tomatoEmoji, 'g')) || []).length;
-						tomatoCount += (line.match(new RegExp(halfTomatoEmoji, 'g')) || []).length * 0.5;
-						tomatoCount += (line.match(new RegExp(quarterTomatoEmoji, 'g')) || []).length * 0.25;
+						totalTomatoCount += (line.match(new RegExp(tomatoEmoji, 'g')) || []).length;
+						totalTomatoCount += (line.match(new RegExp(halfTomatoEmoji, 'g')) || []).length * 0.5;
+						totalTomatoCount += (line.match(new RegExp(quarterTomatoEmoji, 'g')) || []).length * 0.25;
 					}
 				}
 			} catch (error) {
@@ -138,7 +141,11 @@ class ChecklistView extends ItemView {
 			}
 		}
 
-		this.tomatoCountContainer.setText(`Total: ${tomatoEmoji}x${tomatoCount}`);
+		const totalMinutes = totalTomatoCount * (workDuration + breakDuration);
+		const hours = Math.floor(totalMinutes / 60);
+		const minutes = totalMinutes % 60;
+
+		this.tomatoCountContainer.setText(`Total: ${tomatoEmoji}x${totalTomatoCount} (${hours}h ${minutes}m)`);
 		this.checklistContainer.empty();
 
 		const checklistContent = this.checklistContainer.createDiv({ cls: 'checklist-list' });
@@ -236,6 +243,36 @@ class ChecklistSettingTab extends PluginSettingTab {
 					this.plugin.settings.quarterTomatoEmoji = value || '🍒';
 					await this.plugin.saveSettings();
 					this.plugin.updateActiveChecklistView();
+				}));
+
+		new Setting(containerEl)
+			.setName('Work Duration')
+			.setDesc('Duration of a work session in minutes.')
+			.addText(text => text
+				.setPlaceholder('Enter minutes')
+				.setValue(this.plugin.settings.workDuration.toString())
+				.onChange(async (value) => {
+					const numValue = parseInt(value, 10);
+					if (!isNaN(numValue)) {
+						this.plugin.settings.workDuration = numValue;
+						await this.plugin.saveSettings();
+						this.plugin.updateActiveChecklistView();
+					}
+				}));
+
+		new Setting(containerEl)
+			.setName('Break Duration')
+			.setDesc('Duration of a break session in minutes.')
+			.addText(text => text
+				.setPlaceholder('Enter minutes')
+				.setValue(this.plugin.settings.breakDuration.toString())
+				.onChange(async (value) => {
+					const numValue = parseInt(value, 10);
+					if (!isNaN(numValue)) {
+						this.plugin.settings.breakDuration = numValue;
+						await this.plugin.saveSettings();
+						this.plugin.updateActiveChecklistView();
+					}
 				}));
 	}
 }

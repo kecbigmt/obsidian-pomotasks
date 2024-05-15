@@ -2,11 +2,14 @@ import { App, Plugin, PluginSettingTab, Setting, TFile, ItemView, WorkspaceLeaf,
 
 interface ChecklistPluginSettings {
 	autoUpdate: boolean;
+	tomatoEmoji: string;
 }
 
 const DEFAULT_SETTINGS: ChecklistPluginSettings = {
-	autoUpdate: true
+	autoUpdate: true,
+	tomatoEmoji: '🍅'
 };
+
 
 const CHECKLIST_VIEW_TYPE = 'checklist-view';
 
@@ -110,6 +113,7 @@ class ChecklistView extends ItemView {
 		const files = this.plugin.app.vault.getMarkdownFiles();
 		let checklistItems: { task: string, path: string, line: string }[] = [];
 		let tomatoCount = 0;
+		const tomatoEmoji = this.plugin.settings.tomatoEmoji;
 
 		for (const file of files) {
 			try {
@@ -119,7 +123,7 @@ class ChecklistView extends ItemView {
 				for (const line of lines) {
 					if (line.match(/^\s*-\s*\[\s\]/)) {
 						checklistItems.push({ task: line.trim(), path: file.path, line });
-						tomatoCount += (line.match(/🍅/g) || []).length;
+						tomatoCount += (line.match(new RegExp(tomatoEmoji, 'g')) || []).length;
 					}
 				}
 			} catch (error) {
@@ -127,7 +131,7 @@ class ChecklistView extends ItemView {
 			}
 		}
 
-		this.tomatoCountContainer.setText(`Total Tomatoes: ${tomatoCount}`);
+		this.tomatoCountContainer.setText(`Total: ${tomatoEmoji}x${tomatoCount}`);
 		this.checklistContainer.empty();
 
 		const checklistContent = this.checklistContainer.createDiv({ cls: 'checklist-list' });
@@ -189,6 +193,18 @@ class ChecklistSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.autoUpdate = value;
 					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Tomato Emoji')
+			.setDesc('Emoji to use for representing a Pomodoro session.')
+			.addText(text => text
+				.setPlaceholder('Enter emoji')
+				.setValue(this.plugin.settings.tomatoEmoji)
+				.onChange(async (value) => {
+					this.plugin.settings.tomatoEmoji = value || '🍅';
+					await this.plugin.saveSettings();
+					this.plugin.updateActiveChecklistView();
 				}));
 	}
 }

@@ -1,4 +1,4 @@
-import { App, Plugin, PluginSettingTab, Setting, TFile, ItemView, WorkspaceLeaf, MarkdownRenderer, Component } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, TFile, ItemView, WorkspaceLeaf, MarkdownRenderer, Component, setIcon } from 'obsidian';
 
 interface ChecklistPluginSettings {
 	autoUpdate: boolean;
@@ -90,13 +90,11 @@ export default class ChecklistPlugin extends Plugin {
 
 class ChecklistView extends ItemView {
 	private checklistContainer: HTMLElement;
-	private tomatoCountContainer: HTMLElement;
 	private plugin: ChecklistPlugin;
 
 	constructor(leaf: WorkspaceLeaf, plugin: ChecklistPlugin) {
 		super(leaf);
 		this.plugin = plugin;
-		this.tomatoCountContainer = this.contentEl.createDiv({ cls: 'tomato-count-container' });
 		this.checklistContainer = this.contentEl.createDiv({ cls: 'checklist-container' });
 		this.updateChecklist = this.updateChecklist.bind(this);
 	}
@@ -119,42 +117,68 @@ class ChecklistView extends ItemView {
 
 	async updateChecklist() {
 		const files = this.plugin.app.vault.getMarkdownFiles();
-		let checklistItems: { task: string, path: string, line: string }[] = [];
-		let totalTomatoCount = 0;
 		const { tomatoEmoji, halfTomatoEmoji, quarterTomatoEmoji, workDuration, breakDuration } = this.plugin.settings;
-
+		let fileItems: { fileName: string, filePath: string, items: { task: string, path: string, line: string }[], tomatoCount: number }[] = [];
+	
 		for (const file of files) {
 			try {
 				const content = await this.plugin.app.vault.read(file);
 				const lines = content.split('\n');
-
+				let items: { task: string, path: string, line: string }[] = [];
+				let tomatoCount = 0;
+	
 				for (const line of lines) {
 					if (line.match(/^\s*-\s*\[\s\]/)) {
-						checklistItems.push({ task: line.trim(), path: file.path, line });
-						totalTomatoCount += (line.match(new RegExp(tomatoEmoji, 'g')) || []).length;
-						totalTomatoCount += (line.match(new RegExp(halfTomatoEmoji, 'g')) || []).length * 0.5;
-						totalTomatoCount += (line.match(new RegExp(quarterTomatoEmoji, 'g')) || []).length * 0.25;
+						items.push({ task: line.trim(), path: file.path, line });
+						tomatoCount += (line.match(new RegExp(tomatoEmoji, 'g')) || []).length;
+						tomatoCount += (line.match(new RegExp(halfTomatoEmoji, 'g')) || []).length * 0.5;
+						tomatoCount += (line.match(new RegExp(quarterTomatoEmoji, 'g')) || []).length * 0.25;
 					}
+				}
+	
+				if (items.length > 0) {
+					fileItems.push({ fileName: file.name.replace(/\.[^/.]+$/, ""), filePath: file.path, items, tomatoCount });
 				}
 			} catch (error) {
 				console.error(`Error reading file ${file.path}:`, error);
 			}
 		}
-
-		const totalMinutes = totalTomatoCount * (workDuration + breakDuration);
-		const hours = Math.floor(totalMinutes / 60);
-		const minutes = totalMinutes % 60;
-
-		this.tomatoCountContainer.setText(`Total: ${tomatoEmoji}x${totalTomatoCount} (${hours}h ${minutes}m)`);
+	
+		fileItems = fileItems.sort((a, b) => a.fileName.localeCompare(b.fileName));
 		this.checklistContainer.empty();
-
-		const checklistContent = this.checklistContainer.createDiv({ cls: 'checklist-list' });
-		
-		for (const item of checklistItems) {
-			await this.renderChecklistItem(item, checklistContent);
-		}
+	
+		fileItems.forEach(fileItem => {
+			const { fileName, filePath, items, tomatoCount } = fileItem;
+			const totalMinutes = tomatoCount * (workDuration + breakDuration);
+			const hours = Math.floor(totalMinutes / 60);
+			const minutes = totalMinutes % 60;
+	
+			const fileSection = this.checklistContainer.createDiv({ cls: 'file-section' });
+	
+			const fileHeader = fileSection.createDiv({ cls: 'file-section-header' });
+			fileHeader.createEl('h2', { text: fileName, cls: 'file-section-title' });
+	
+			const fileIcon = fileHeader.createEl('span', { cls: 'file-section-icon' });
+			fileIcon.addEventListener('click', () => {
+				const leaf = this.plugin.app.workspace.getLeaf();
+				const file = this.plugin.app.vault.getAbstractFileByPath(filePath) as TFile;
+				if (file) {
+					leaf.openFile(file);
+				}
+			});
+			fileIcon.addClass('clickable-icon');
+			setIcon(fileIcon, 'chevron-right');
+	
+			fileSection.createEl('div', { text: `Total: ${tomatoEmoji}x${tomatoCount} (${hours}h ${minutes}m)` });
+	
+			const checklistContent = fileSection.createDiv({ cls: 'checklist-list' });
+	
+			items.forEach(async (item) => {
+				await this.renderChecklistItem(item, checklistContent);
+			});
+		});
 	}
-
+	
 	async renderChecklistItem(item: { task: string, path: string, line: string }, container: HTMLElement) {
 		const itemEl = container.createEl('label', { cls: 'checklist-item' });
 

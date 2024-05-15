@@ -1,4 +1,4 @@
-import { App, Plugin, PluginSettingTab, Setting, TFile, ItemView, WorkspaceLeaf, MarkdownRenderer, Component, setIcon } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, TFile, ItemView, WorkspaceLeaf, MarkdownRenderer, Component, setIcon, TFolder } from 'obsidian';
 
 interface ChecklistPluginSettings {
 	autoUpdate: boolean;
@@ -7,6 +7,7 @@ interface ChecklistPluginSettings {
 	quarterTomatoEmoji: string;
 	workDuration: number; // in minutes
 	breakDuration: number; // in minutes
+	folderPath: string; // folder to search for checklists
 }
 
 const DEFAULT_SETTINGS: ChecklistPluginSettings = {
@@ -15,9 +16,9 @@ const DEFAULT_SETTINGS: ChecklistPluginSettings = {
 	halfTomatoEmoji: '🍓',
 	quarterTomatoEmoji: '🍒',
 	workDuration: 25,
-	breakDuration: 5
+	breakDuration: 5,
+	folderPath: ''
 };
-
 
 const CHECKLIST_VIEW_TYPE = 'checklist-view';
 
@@ -117,10 +118,14 @@ class ChecklistView extends ItemView {
 
 	async updateChecklist() {
 		const files = this.plugin.app.vault.getMarkdownFiles();
-		const { tomatoEmoji, halfTomatoEmoji, quarterTomatoEmoji, workDuration, breakDuration } = this.plugin.settings;
+		const { tomatoEmoji, halfTomatoEmoji, quarterTomatoEmoji, workDuration, breakDuration, folderPath } = this.plugin.settings;
 		let fileItems: { fileName: string, filePath: string, items: { task: string, path: string, line: string }[], tomatoCount: number }[] = [];
 	
 		for (const file of files) {
+			if (folderPath && !file.path.startsWith(folderPath)) {
+				continue;
+			}
+			
 			try {
 				const content = await this.plugin.app.vault.read(file);
 				const lines = content.split('\n');
@@ -178,6 +183,7 @@ class ChecklistView extends ItemView {
 			});
 		});
 	}
+		
 	
 	async renderChecklistItem(item: { task: string, path: string, line: string }, container: HTMLElement) {
 		const itemEl = container.createEl('label', { cls: 'checklist-item' });
@@ -214,6 +220,16 @@ class ChecklistSettingTab extends PluginSettingTab {
 	constructor(app: App, plugin: ChecklistPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
+	}
+
+	getFolderOptions(): string[] {
+		const folderPaths: string[] = [];
+		this.plugin.app.vault.getAllLoadedFiles().forEach((file) => {
+			if (file instanceof TFolder) {
+				folderPaths.push(file.path);
+			}
+		});
+		return folderPaths;
 	}
 
 	display(): void {
@@ -298,5 +314,21 @@ class ChecklistSettingTab extends PluginSettingTab {
 						this.plugin.updateActiveChecklistView();
 					}
 				}));
+
+		new Setting(containerEl)
+			.setName('Folder Path')
+			.setDesc('Select the folder to search for checklists.')
+			.addDropdown(dropdown => {
+				const folderOptions = this.getFolderOptions();
+				folderOptions.forEach(folder => {
+					dropdown.addOption(folder, folder);
+				});
+				dropdown.setValue(this.plugin.settings.folderPath);
+				dropdown.onChange(async (value) => {
+					this.plugin.settings.folderPath = value;
+					await this.plugin.saveSettings();
+					this.plugin.updateActiveChecklistView();
+				});
+			});
 	}
 }

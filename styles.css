@@ -20,9 +20,9 @@ If your plugin does not need CSS, delete this file.
 }
 
 .file-section-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+	display: flex;
+	align-items: center;
+	gap: 8px;
 	border-bottom: 1px solid #ccc;
 }
 
@@ -65,4 +65,55 @@ If your plugin does not need CSS, delete this file.
 
 .clickable-icon {
 	cursor: pointer;
+}
+
+.timer-container {
+    display: flex;
+	justify-content: space-between;
+    align-items: center;
+	gap: 8px;
+	padding: 10px;
+	border: 1px solid var(--divider-color);
+	border-radius: 8px;
+}
+
+.display-group {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	flex-grow: 1;
+}
+
+.period-label {
+    font-size: 0.875rem;
+}
+
+.timer-display {
+    font-size: 1.5rem;
+	line-height: 1.0;
+}
+
+.button-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.timer-button {
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.3s;
+}
+
+.timer-button:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.hide {
+    display: none;
 }

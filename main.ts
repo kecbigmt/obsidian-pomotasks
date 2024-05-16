@@ -24,6 +24,7 @@ const CHECKLIST_VIEW_TYPE = 'checklist-view';
 
 export default class ChecklistPlugin extends Plugin {
 	settings: ChecklistPluginSettings;
+	statusBarItem: HTMLElement;
 
 	async onload() {
 		await this.loadSettings();
@@ -43,6 +44,8 @@ export default class ChecklistPlugin extends Plugin {
 		}
 
 		this.activateView();
+		this.statusBarItem = this.addStatusBarItem();
+		this.registerInterval(window.setInterval(() => this.updateStatusBar(), 1000));
 	}
 
 	onunload() {
@@ -87,15 +90,36 @@ export default class ChecklistPlugin extends Plugin {
 			timeout = window.setTimeout(func, wait);
 		};
 	}
+
+	updateStatusBar() {
+		const view = this.app.workspace.getLeavesOfType(CHECKLIST_VIEW_TYPE).first()?.view as ChecklistView;
+		if (view) {
+			this.statusBarItem.setText(view.getRemainingTime());
+		} else {
+			this.statusBarItem.setText('No active timer');
+		}
+	}	
 }
 
 class ChecklistView extends ItemView {
 	private checklistContainer: HTMLElement;
+	private timerContainer: HTMLElement;
+	private startButton: HTMLButtonElement;
+	private pauseButton: HTMLButtonElement;
+	private resetButton: HTMLButtonElement;
+	private skipButton: HTMLButtonElement;
+	private timerDisplay: HTMLElement;
+	private timerInterval: number | null = null;
+	private remainingTime: number; // in seconds
+	private isWorkPeriod: boolean = true; // true for work, false for break
+	private periodLabel: HTMLElement;
 	private plugin: ChecklistPlugin;
 
 	constructor(leaf: WorkspaceLeaf, plugin: ChecklistPlugin) {
 		super(leaf);
 		this.plugin = plugin;
+		this.contentEl.addClass('checklist-view');
+		this.timerContainer = this.contentEl.createDiv({ cls: 'timer-container' });
 		this.checklistContainer = this.contentEl.createDiv({ cls: 'checklist-container' });
 		this.updateChecklist = this.updateChecklist.bind(this);
 	}
@@ -113,25 +137,133 @@ class ChecklistView extends ItemView {
 	}
 
 	async onOpen() {
+		this.createTimerUI();
 		this.updateChecklist();
 	}
 
+	async onClose() {
+		this.clearTimer();
+	}
+
+	private createTimerUI() {
+		const displayContainer = this.timerContainer.createDiv({ cls: 'display-group' });
+		this.periodLabel = displayContainer.createEl('div', { text: this.isWorkPeriod ? '🏃 Work' : '☕️ Break', cls: 'period-label' });
+		this.timerDisplay = displayContainer.createEl('div', { text: '25:00', cls: 'timer-display' });
+	
+		const buttonContainer = this.timerContainer.createDiv({ cls: 'button-group' });
+	
+		this.resetButton = buttonContainer.createEl('button', { cls: 'timer-button' });
+		setIcon(this.resetButton, 'rotate-ccw');
+		this.startButton = buttonContainer.createEl('button', { cls: 'timer-button' });
+		setIcon(this.startButton, 'play');
+		this.pauseButton = buttonContainer.createEl('button', { cls: 'timer-button' });
+		setIcon(this.pauseButton, 'pause');
+		this.skipButton = buttonContainer.createEl('button', { cls: 'timer-button' });
+		setIcon(this.skipButton, 'chevron-last');
+	
+		this.startButton.onclick = this.startTimer.bind(this);
+		this.pauseButton.onclick = this.pauseTimer.bind(this);
+		this.resetButton.onclick = this.resetTimer.bind(this);
+		this.skipButton.onclick = this.skipTimer.bind(this);
+	
+		this.resetTimer();
+		this.updateTimerButtons(); // タイマーボタンの初期表示を更新
+	}
+	
+	
+
+	private startTimer() {
+		if (this.timerInterval) return;
+	
+		this.timerInterval = window.setInterval(() => {
+			this.remainingTime--;
+			this.updateTimerDisplay();
+	
+			if (this.remainingTime <= 0) {
+				this.clearTimer();
+				this.isWorkPeriod = !this.isWorkPeriod;
+				this.resetTimer();
+				this.updateTimerButtons(); // タイマーボタンの表示を更新
+			}
+		}, 1000);
+	
+		this.updateTimerButtons(); // タイマーボタンの表示を更新
+	}
+	
+
+	private pauseTimer() {
+		this.clearTimer();
+		this.updateTimerButtons(); // タイマーボタンの表示を更新
+	}
+	
+
+	private resetTimer() {
+		this.clearTimer();
+		this.remainingTime = (this.isWorkPeriod ? this.plugin.settings.workDuration : this.plugin.settings.breakDuration) * 60;
+		this.updateTimerDisplay();
+		this.updatePeriodLabel();
+		this.updateTimerButtons(); // タイマーボタンの表示を更新
+	}
+	
+
+	private skipTimer() {
+		this.clearTimer();
+		this.isWorkPeriod = !this.isWorkPeriod;
+		this.resetTimer();
+		this.updateTimerButtons(); // タイマーボタンの表示を更新
+	}
+
+	private updateTimerButtons() {
+		if (this.timerInterval) {
+			this.startButton.hide();
+			this.pauseButton.show();
+		} else {
+			this.startButton.show();
+			this.pauseButton.hide();
+		}
+	}
+	
+	
+	private clearTimer() {
+		if (this.timerInterval) {
+			clearInterval(this.timerInterval);
+			this.timerInterval = null;
+		}
+	}
+
+	private updateTimerDisplay() {
+		const minutes = Math.floor(this.remainingTime / 60);
+		const seconds = this.remainingTime % 60;
+		this.timerDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+	}
+
+	private updatePeriodLabel() {
+		this.periodLabel.textContent = this.isWorkPeriod ? '🏃 Work' : '☕️ Break';
+	}
+
+	getRemainingTime(): string {
+		const minutes = Math.floor(this.remainingTime / 60);
+		const seconds = this.remainingTime % 60;
+		const periodEmoji = this.isWorkPeriod ? '🏃' : '☕️';
+		return `${periodEmoji} ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+	}
+	
 	async updateChecklist() {
 		const files = this.plugin.app.vault.getMarkdownFiles();
 		const { tomatoEmoji, halfTomatoEmoji, quarterTomatoEmoji, workDuration, breakDuration, folderPath } = this.plugin.settings;
 		let fileItems: { fileName: string, filePath: string, items: { task: string, path: string, line: string }[], tomatoCount: number }[] = [];
-	
+
 		for (const file of files) {
 			if (folderPath && !file.path.startsWith(folderPath)) {
 				continue;
 			}
-			
+
 			try {
 				const content = await this.plugin.app.vault.read(file);
 				const lines = content.split('\n');
 				let items: { task: string, path: string, line: string }[] = [];
 				let tomatoCount = 0;
-	
+
 				for (const line of lines) {
 					if (line.match(/^\s*-\s*\[\s\]/)) {
 						items.push({ task: line.trim(), path: file.path, line });
@@ -140,7 +272,7 @@ class ChecklistView extends ItemView {
 						tomatoCount += (line.match(new RegExp(quarterTomatoEmoji, 'g')) || []).length * 0.25;
 					}
 				}
-	
+
 				if (items.length > 0) {
 					fileItems.push({ fileName: file.name.replace(/\.[^/.]+$/, ""), filePath: file.path, items, tomatoCount });
 				}
@@ -148,21 +280,21 @@ class ChecklistView extends ItemView {
 				console.error(`Error reading file ${file.path}:`, error);
 			}
 		}
-	
+
 		fileItems = fileItems.sort((a, b) => a.fileName.localeCompare(b.fileName));
 		this.checklistContainer.empty();
-	
+
 		fileItems.forEach(fileItem => {
 			const { fileName, filePath, items, tomatoCount } = fileItem;
 			const totalMinutes = tomatoCount * (workDuration + breakDuration);
 			const hours = Math.floor(totalMinutes / 60);
 			const minutes = totalMinutes % 60;
-	
+
 			const fileSection = this.checklistContainer.createDiv({ cls: 'file-section' });
-	
+
 			const fileHeader = fileSection.createDiv({ cls: 'file-section-header' });
 			fileHeader.createEl('h2', { text: fileName, cls: 'file-section-title' });
-	
+
 			const fileIcon = fileHeader.createEl('span', { cls: 'file-section-icon' });
 			fileIcon.addEventListener('click', () => {
 				const leaf = this.plugin.app.workspace.getLeaf();
@@ -173,18 +305,17 @@ class ChecklistView extends ItemView {
 			});
 			fileIcon.addClass('clickable-icon');
 			setIcon(fileIcon, 'chevron-right');
-	
 			fileSection.createEl('div', { text: `Total: ${tomatoEmoji}x${tomatoCount} (${hours}h ${minutes}m)` });
-	
+
 			const checklistContent = fileSection.createDiv({ cls: 'checklist-list' });
-	
+
 			items.forEach(async (item) => {
 				await this.renderChecklistItem(item, checklistContent);
 			});
 		});
 	}
-		
-	
+
+
 	async renderChecklistItem(item: { task: string, path: string, line: string }, container: HTMLElement) {
 		const itemEl = container.createEl('label', { cls: 'checklist-item' });
 

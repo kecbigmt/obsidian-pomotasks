@@ -49,7 +49,7 @@ If your plugin does not need CSS, delete this file.
 .checklist-list {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: 8px;
 }
 
 .checklist-item {

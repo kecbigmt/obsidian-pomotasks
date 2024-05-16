@@ -103,6 +103,7 @@ export default class ChecklistPlugin extends Plugin {
 
 class ChecklistView extends ItemView {
 	private checklistContainer: HTMLElement;
+	private selectedTaskContainer: HTMLElement;
 	private timerContainer: HTMLElement;
 	private startButton: HTMLButtonElement;
 	private pauseButton: HTMLButtonElement;
@@ -114,12 +115,16 @@ class ChecklistView extends ItemView {
 	private isWorkPeriod: boolean = true; // true for work, false for break
 	private periodLabel: HTMLElement;
 	private plugin: ChecklistPlugin;
+	private selectedTask: { task: string, path: string, line: string } | null = null;
+	private selectedTaskLabel: HTMLElement;
+	private clearTaskButton: HTMLAnchorElement;
 
 	constructor(leaf: WorkspaceLeaf, plugin: ChecklistPlugin) {
 		super(leaf);
 		this.plugin = plugin;
 		this.contentEl.addClass('checklist-view');
 		this.timerContainer = this.contentEl.createDiv({ cls: 'timer-container' });
+		this.selectedTaskContainer = this.contentEl.createDiv({ cls: 'selected-task-container' });
 		this.checklistContainer = this.contentEl.createDiv({ cls: 'checklist-container' });
 		this.updateChecklist = this.updateChecklist.bind(this);
 	}
@@ -149,9 +154,15 @@ class ChecklistView extends ItemView {
 		const displayContainer = this.timerContainer.createDiv({ cls: 'display-group' });
 		this.periodLabel = displayContainer.createEl('div', { text: this.isWorkPeriod ? '🏃 Work' : '☕️ Break', cls: 'period-label' });
 		this.timerDisplay = displayContainer.createEl('div', { text: '25:00', cls: 'timer-display' });
+
+		this.selectedTaskLabel = this.selectedTaskContainer.createEl('div', { text: 'No task selected', cls: 'selected-task-label' });
+		this.clearTaskButton = this.selectedTaskContainer.createEl('a', { cls: 'clickable-icon', title: 'Cancel' });
+		setIcon(this.clearTaskButton, 'x-circle');
+		this.clearTaskButton.onclick = () => this.clearSelectedTask();
+		this.clearTaskButton.hide();
 	
 		const buttonContainer = this.timerContainer.createDiv({ cls: 'button-group' });
-	
+		
 		this.resetButton = buttonContainer.createEl('button', { cls: 'timer-button' });
 		setIcon(this.resetButton, 'rotate-ccw');
 		this.startButton = buttonContainer.createEl('button', { cls: 'timer-button' });
@@ -160,16 +171,15 @@ class ChecklistView extends ItemView {
 		setIcon(this.pauseButton, 'pause');
 		this.skipButton = buttonContainer.createEl('button', { cls: 'timer-button' });
 		setIcon(this.skipButton, 'chevron-last');
-	
+		
 		this.startButton.onclick = this.startTimer.bind(this);
 		this.pauseButton.onclick = this.pauseTimer.bind(this);
 		this.resetButton.onclick = this.resetTimer.bind(this);
 		this.skipButton.onclick = this.skipTimer.bind(this);
-	
+		
 		this.resetTimer();
 		this.updateTimerButtons(); // タイマーボタンの初期表示を更新
 	}
-	
 	
 
 	private startTimer() {
@@ -185,10 +195,16 @@ class ChecklistView extends ItemView {
 				this.resetTimer();
 				this.updateTimerButtons(); // タイマーボタンの表示を更新
 			}
+	
+			if (this.selectedTask) {
+				// タスクの経過時間を記録するコードをここに追加
+				console.log(`Task: ${this.selectedTask.task} Time Elapsed: ${this.plugin.settings.workDuration * 60 - this.remainingTime}s`);
+			}
 		}, 1000);
 	
 		this.updateTimerButtons(); // タイマーボタンの表示を更新
 	}
+	
 	
 
 	private pauseTimer() {
@@ -317,17 +333,23 @@ class ChecklistView extends ItemView {
 
 
 	async renderChecklistItem(item: { task: string, path: string, line: string }, container: HTMLElement) {
-		const itemEl = container.createEl('label', { cls: 'checklist-item' });
-
-		const checkbox = itemEl.createEl('input');
+		const itemEl = container.createEl('div', { cls: 'checklist-item' });
+	
+		const labelEl = itemEl.createEl('label', { cls: 'checklist-item-label' });
+		const checkbox = labelEl.createEl('input');
 		checkbox.type = 'checkbox';
 		checkbox.onclick = async () => {
 			await this.markItemAsDone(item);
 		};
-
-		const markdownContainer = itemEl.createDiv();
+	
+		const markdownContainer = labelEl.createDiv();
 		await MarkdownRenderer.render(this.plugin.app, item.task.slice(6), markdownContainer, item.path, this);
+	
+		const selectButton = itemEl.createEl('a', { cls: 'clickable-icon', title: 'Focus on' });
+		setIcon(selectButton, 'circle-dot');
+		selectButton.onclick = () => this.selectTask(item);
 	}
+	
 
 	async markItemAsDone(item: { task: string, path: string, line: string }) {
 		try {
@@ -343,6 +365,20 @@ class ChecklistView extends ItemView {
 			console.error(`Error updating file ${item.path}:`, error);
 		}
 	}
+
+	private async selectTask(item: { task: string, path: string, line: string }) {
+		this.selectedTask = item;
+		this.selectedTaskLabel.empty();
+		await MarkdownRenderer.render(this.plugin.app, item.task.slice(6), this.selectedTaskLabel, item.path, this);
+		this.clearTaskButton.show();
+	}
+	
+	private clearSelectedTask() {
+		this.selectedTask = null;
+		this.selectedTaskLabel.textContent = 'No task selected';
+		this.clearTaskButton.hide();
+	}
+	
 }
 
 class ChecklistSettingTab extends PluginSettingTab {

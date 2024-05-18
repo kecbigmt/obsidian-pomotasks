@@ -21,14 +21,16 @@ describe('getRemainingMinutesFromTaskLine', () => {
 
 describe('updateTaskLineAfterElapsedMinutes', () => {
     it('should correctly update the task line for standard cases', () => {
-        expect(updateTaskLineAfterElapsedMinutes(setting, '- [ ] 🍅 Reply to emails', 12.5)).toBe('- [ ] ~~🍓~~ 🍓 Reply to emails');
-        expect(updateTaskLineAfterElapsedMinutes(setting, '- [ ] 🍅🍓 Reply to emails', 18.75)).toBe('- [ ] ~~🍓🍒~~ 🍓🍒 Reply to emails');
-        expect(updateTaskLineAfterElapsedMinutes(setting, '- [ ] 🍅🍓🍒 Reply to emails', 31.25)).toBe('- [ ] ~~🍅🍒~~ 🍓 Reply to emails');
+        expect(updateTaskLineAfterElapsedMinutes(setting, '- [ ] 🍅 Reply to emails', 13)).toBe('- [ ] ~~🍓~~ 🍓 Reply to emails');
+        expect(updateTaskLineAfterElapsedMinutes(setting, '- [ ] 🍅🍓 Reply to emails', 19)).toBe('- [ ] ~~🍓🍒~~ 🍓🍒 Reply to emails');
+        expect(updateTaskLineAfterElapsedMinutes(setting, '- [ ] 🍅🍓🍒 Reply to emails', 32)).toBe('- [ ] ~~🍅🍒~~ 🍓 Reply to emails');
     });
 
     it('should correctly update the task line with already consumed parts', () => {
-        expect(updateTaskLineAfterElapsedMinutes(setting, '- [ ] ~~🍓~~🍒 Reply to emails', 6.25)).toBe('- [ ] ~~🍓~~ ~~🍒~~ Reply to emails');
-        expect(updateTaskLineAfterElapsedMinutes(setting, '- [ ] ~~🍅~~ ~~🍓~~ 🍒 Reply to emails', 6.25)).toBe('- [ ] ~~🍅~~ ~~🍓~~ ~~🍒~~ Reply to emails');
+        expect(updateTaskLineAfterElapsedMinutes(setting, '- [ ] ~~🍓~~🍒 Reply to emails', 7)).toBe('- [ ] ~~🍓~~ ~~🍒~~ Reply to emails');
+        expect(updateTaskLineAfterElapsedMinutes(setting, '- [ ] ~~🍅~~ ~~🍓~~ 🍒 Reply to emails', 7)).toBe('- [ ] ~~🍅~~ ~~🍓~~ ~~🍒~~ Reply to emails');
+        expect(updateTaskLineAfterElapsedMinutes(setting, '- [ ] ~~🍒~~ 🍅🍓🍒 Reply to emails', 9)).toBe('- [ ] ~~🍒~~ ~~🍒~~ 🍅🍓 Reply to emails');
+
     });
 
     it('should handle over-consumption correctly', () => {
@@ -42,5 +44,17 @@ describe('updateTaskLineAfterElapsedMinutes', () => {
 
     it('should handle no estimated line correctly', () => {
         expect(updateTaskLineAfterElapsedMinutes(setting, '- [ ] Reply to emails', 25)).toBe('- [ ] ~~+🍅~~ Reply to emails');
+    });
+
+    it('should handle zero minutes correctly', () => {
+        expect(updateTaskLineAfterElapsedMinutes(setting, '- [ ] 🍅 Reply to emails', 0)).toBe('- [ ] 🍅 Reply to emails');
+    });
+
+    it('should handle negative minutes correctly', () => {
+        expect(updateTaskLineAfterElapsedMinutes(setting, '- [ ] 🍅 Reply to emails', -25)).toBe('- [ ] 🍅 Reply to emails');
+    });
+
+    it('should handle small minutes correctly', () => {
+        expect(updateTaskLineAfterElapsedMinutes(setting, '- [ ] 🍅 Reply to emails', 1)).toBe('- [ ] 🍅 Reply to emails');
     });
 });

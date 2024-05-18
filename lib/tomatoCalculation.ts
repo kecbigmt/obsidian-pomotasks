@@ -51,11 +51,25 @@ function parseTomatoEmojisIntoMinutes(setting: PomodoroSetting, input: string): 
 }
 
 function formatMinutesIntoTomatoEmojis(setting: PomodoroSetting, input: number): string {
-    const fullTomatoCount = Math.floor(input / setting.workMinutesPerTomato);
+    let fullTomatoCount = Math.floor(input / setting.workMinutesPerTomato);
     input %= setting.workMinutesPerTomato;
-    const halfTomatoCount = Math.floor(input / (setting.workMinutesPerTomato / 2));
+    let halfTomatoCount = Math.floor(input / (setting.workMinutesPerTomato / 2));
     input %= (setting.workMinutesPerTomato / 2);
-    const quarterTomatoCount = Math.round(input / (setting.workMinutesPerTomato / 4));
+    let quarterTomatoCount = Math.round(input / (setting.workMinutesPerTomato / 4));
+
+    if (quarterTomatoCount >= 2) {
+        halfTomatoCount += Math.floor(quarterTomatoCount / 2);
+        quarterTomatoCount %= 2;
+    }
+
+    if (halfTomatoCount >= 2) {
+        fullTomatoCount += Math.floor(halfTomatoCount / 2);
+        halfTomatoCount %= 2;
+    }
+
+    if (fullTomatoCount === 0 && halfTomatoCount === 0 && quarterTomatoCount === 0) {
+        throw new Error('Too few minutes to format into tomato emojis: ' + input);
+    }
 
     return setting.fullTomatoEmoji.repeat(fullTomatoCount) +
            setting.halfTomatoEmoji.repeat(halfTomatoCount) +
@@ -64,18 +78,36 @@ function formatMinutesIntoTomatoEmojis(setting: PomodoroSetting, input: number):
 
 function subtractMinutesFromTomatoEmojis(setting: PomodoroSetting, tomatoString: string, minutes: number): string {
     const totalMinutes = parseTomatoEmojisIntoMinutes(setting, tomatoString);
-    const consumedMinutes = Math.min(minutes, totalMinutes);
-    const remainingMinutes = totalMinutes - consumedMinutes;
+
+    const threshold = setting.workMinutesPerTomato / 4;
+
+    if (totalMinutes === 0) {
+        if (minutes < threshold) return '';
+        const overTomatoes = formatMinutesIntoTomatoEmojis(setting, minutes);
+        return `~~+${overTomatoes}~~`;
+    }
 
     if (minutes > totalMinutes) {
         const overMinutes = minutes - totalMinutes;
+        if (overMinutes < threshold) {
+            const totalTomatoes = formatMinutesIntoTomatoEmojis(setting, totalMinutes);
+            return `~~${totalTomatoes}~~`;
+        }
         const overTomatoes = formatMinutesIntoTomatoEmojis(setting, overMinutes);
         const totalTomatoes = formatMinutesIntoTomatoEmojis(setting, totalMinutes);
         return `~~${totalTomatoes}+${overTomatoes}~~`;
     }
 
-    const consumedTomatoes = formatMinutesIntoTomatoEmojis(setting, consumedMinutes);
-    const remainingTomatoes = formatMinutesIntoTomatoEmojis(setting, remainingMinutes);
+    if (minutes < threshold) {
+        return formatMinutesIntoTomatoEmojis(setting, totalMinutes);
+    }
+    const consumedTomatoes = formatMinutesIntoTomatoEmojis(setting, minutes);
+
+    const remainingMinutes = totalMinutes - minutes;
+    if (remainingMinutes < threshold) {
+        return `~~${consumedTomatoes}~~`;
+    }
+    const remainingTomatoes = formatMinutesIntoTomatoEmojis(setting, totalMinutes - minutes);
 
     return `~~${consumedTomatoes}~~ ${remainingTomatoes}`.trim();
 }

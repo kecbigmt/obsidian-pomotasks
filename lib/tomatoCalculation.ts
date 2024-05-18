@@ -41,7 +41,7 @@ export function updateTaskLineAfterElapsedMinutes(setting: PomodoroSetting, task
 }
 
 
-export function parseTomatoEmojisIntoMinutes(setting: PomodoroSetting, input: string): number {
+function parseTomatoEmojisIntoMinutes(setting: PomodoroSetting, input: string): number {
     const fullTomatoCount = (input.match(new RegExp(setting.fullTomatoEmoji, 'g')) || []).length;
     const halfTomatoCount = (input.match(new RegExp(setting.halfTomatoEmoji, 'g')) || []).length;
     const quarterTomatoCount = (input.match(new RegExp(setting.quarterTomatoEmoji, 'g')) || []).length;
@@ -50,7 +50,7 @@ export function parseTomatoEmojisIntoMinutes(setting: PomodoroSetting, input: st
            quarterTomatoCount * (setting.workMinutesPerTomato / 4);
 }
 
-export function formatMinutesIntoTomatoEmojis(setting: PomodoroSetting, input: number): string {
+function formatMinutesIntoTomatoEmojis(setting: PomodoroSetting, input: number): string {
     const fullTomatoCount = Math.floor(input / setting.workMinutesPerTomato);
     input %= setting.workMinutesPerTomato;
     const halfTomatoCount = Math.floor(input / (setting.workMinutesPerTomato / 2));
@@ -62,7 +62,7 @@ export function formatMinutesIntoTomatoEmojis(setting: PomodoroSetting, input: n
            setting.quarterTomatoEmoji.repeat(quarterTomatoCount);
 }
 
-export function subtractMinutesFromTomatoEmojis(setting: PomodoroSetting, tomatoString: string, minutes: number): string {
+function subtractMinutesFromTomatoEmojis(setting: PomodoroSetting, tomatoString: string, minutes: number): string {
     const totalMinutes = parseTomatoEmojisIntoMinutes(setting, tomatoString);
     const consumedMinutes = Math.min(minutes, totalMinutes);
     const remainingMinutes = totalMinutes - consumedMinutes;

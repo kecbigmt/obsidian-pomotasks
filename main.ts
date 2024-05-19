@@ -1,4 +1,5 @@
-import { App, Plugin, PluginSettingTab, Setting, TFile, ItemView, WorkspaceLeaf, MarkdownRenderer, Component, setIcon, TFolder } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, TFile, ItemView, WorkspaceLeaf, MarkdownRenderer, setIcon, TFolder } from 'obsidian';
+import { updateTaskBodyAfterElapsedMinutes, getRemainingMinutesFromTaskBody } from './lib/tomatoCalculation';
 
 interface ChecklistPluginSettings {
 	autoUpdate: boolean;
@@ -98,7 +99,47 @@ export default class ChecklistPlugin extends Plugin {
 		} else {
 			this.statusBarItem.setText('No active timer');
 		}
-	}	
+	}
+}
+
+class Task {
+	task: string;
+	path: string;
+	line: string;
+	private _elapsedSeconds: number = 0;
+	private _timerInterval: number | null = null;
+	private  _onDeactivate: (self: Task, elapsedSeconds: number) => Promise<void>;
+
+	constructor(task: string, path: string, line: string, onDeactivate: (self: Task, elapsedSeconds: number) => Promise<void>) {
+		this.task = task;
+		this.path = path;
+		this.line = line;
+		this._onDeactivate = onDeactivate;
+	}
+
+	activate() {
+		if (this._timerInterval) return;
+		this._timerInterval = window.setInterval(() => this.updateElapsedTime(1), 1000);
+	}
+
+	async deactivate() {
+		if (this._timerInterval) window.clearInterval(this._timerInterval);
+		await this._onDeactivate(this, this._elapsedSeconds);
+		this._elapsedSeconds = 0;
+	}
+
+	pause() {
+		if (this._timerInterval) window.clearInterval(this._timerInterval);
+	}
+
+	reset() {
+		this._elapsedSeconds = 0;
+		if (this._timerInterval) window.clearInterval(this._timerInterval);
+	}
+
+	private updateElapsedTime(seconds: number) {
+		this._elapsedSeconds += seconds;
+	}
 }
 
 class ChecklistView extends ItemView {
@@ -115,9 +156,10 @@ class ChecklistView extends ItemView {
 	private isWorkPeriod: boolean = true; // true for work, false for break
 	private periodLabel: HTMLElement;
 	private plugin: ChecklistPlugin;
-	private selectedTask: { task: string, path: string, line: string } | null = null;
+	private selectedTaskBody: string | null = null;
 	private selectedTaskLabel: HTMLElement;
 	private clearTaskButton: HTMLAnchorElement;
+	private fileItems: { fileName: string, filePath: string, items: Task[], tomatoCount: number }[] = [];
 
 	constructor(leaf: WorkspaceLeaf, plugin: ChecklistPlugin) {
 		super(leaf);
@@ -160,9 +202,9 @@ class ChecklistView extends ItemView {
 		setIcon(this.clearTaskButton, 'x-circle');
 		this.clearTaskButton.onclick = () => this.clearSelectedTask();
 		this.clearTaskButton.hide();
-	
+
 		const buttonContainer = this.timerContainer.createDiv({ cls: 'button-group' });
-		
+
 		this.resetButton = buttonContainer.createEl('button', { cls: 'timer-button' });
 		setIcon(this.resetButton, 'rotate-ccw');
 		this.startButton = buttonContainer.createEl('button', { cls: 'timer-button' });
@@ -171,58 +213,59 @@ class ChecklistView extends ItemView {
 		setIcon(this.pauseButton, 'pause');
 		this.skipButton = buttonContainer.createEl('button', { cls: 'timer-button' });
 		setIcon(this.skipButton, 'chevron-last');
-		
+
 		this.startButton.onclick = this.startTimer.bind(this);
 		this.pauseButton.onclick = this.pauseTimer.bind(this);
 		this.resetButton.onclick = this.resetTimer.bind(this);
 		this.skipButton.onclick = this.skipTimer.bind(this);
-		
+
 		this.resetTimer();
 		this.updateTimerButtons(); // タイマーボタンの初期表示を更新
 	}
-	
 
 	private startTimer() {
 		if (this.timerInterval) return;
-	
+
 		this.timerInterval = window.setInterval(() => {
 			this.remainingTime--;
+
 			this.updateTimerDisplay();
-	
+
 			if (this.remainingTime <= 0) {
 				this.clearTimer();
 				this.isWorkPeriod = !this.isWorkPeriod;
 				this.resetTimer();
 				this.updateTimerButtons(); // タイマーボタンの表示を更新
 			}
-	
-			if (this.selectedTask) {
-				// タスクの経過時間を記録するコードをここに追加
-				console.log(`Task: ${this.selectedTask.task} Time Elapsed: ${this.plugin.settings.workDuration * 60 - this.remainingTime}s`);
-			}
 		}, 1000);
-	
+
 		this.updateTimerButtons(); // タイマーボタンの表示を更新
+
+		const selectedTask = this.findSelectedTask();
+		if (selectedTask && this.isWorkPeriod) {
+			selectedTask.activate();
+		}
 	}
-	
-	
 
 	private pauseTimer() {
 		this.clearTimer();
 		this.updateTimerButtons(); // タイマーボタンの表示を更新
+		this.findSelectedTask()?.pause();
 	}
-	
 
 	private resetTimer() {
+		this.findSelectedTask()?.reset();
+
 		this.clearTimer();
 		this.remainingTime = (this.isWorkPeriod ? this.plugin.settings.workDuration : this.plugin.settings.breakDuration) * 60;
 		this.updateTimerDisplay();
 		this.updatePeriodLabel();
 		this.updateTimerButtons(); // タイマーボタンの表示を更新
 	}
-	
 
 	private skipTimer() {
+		this.findSelectedTask()?.deactivate();
+
 		this.clearTimer();
 		this.isWorkPeriod = !this.isWorkPeriod;
 		this.resetTimer();
@@ -238,8 +281,7 @@ class ChecklistView extends ItemView {
 			this.pauseButton.hide();
 		}
 	}
-	
-	
+
 	private clearTimer() {
 		if (this.timerInterval) {
 			clearInterval(this.timerInterval);
@@ -263,11 +305,11 @@ class ChecklistView extends ItemView {
 		const periodEmoji = this.isWorkPeriod ? '🏃' : '☕️';
 		return `${periodEmoji} ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 	}
-	
+
 	async updateChecklist() {
 		const files = this.plugin.app.vault.getMarkdownFiles();
 		const { tomatoEmoji, halfTomatoEmoji, quarterTomatoEmoji, workDuration, breakDuration, folderPath } = this.plugin.settings;
-		let fileItems: { fileName: string, filePath: string, items: { task: string, path: string, line: string }[], tomatoCount: number }[] = [];
+		this.fileItems = [];
 
 		for (const file of files) {
 			if (folderPath && !file.path.startsWith(folderPath)) {
@@ -277,30 +319,60 @@ class ChecklistView extends ItemView {
 			try {
 				const content = await this.plugin.app.vault.read(file);
 				const lines = content.split('\n');
-				let items: { task: string, path: string, line: string }[] = [];
+				let items: Task[] = [];
 				let tomatoCount = 0;
 
 				for (const line of lines) {
 					if (line.match(/^\s*-\s*\[\s\]/)) {
-						items.push({ task: line.trim(), path: file.path, line });
-						tomatoCount += (line.match(new RegExp(tomatoEmoji, 'g')) || []).length;
-						tomatoCount += (line.match(new RegExp(halfTomatoEmoji, 'g')) || []).length * 0.5;
-						tomatoCount += (line.match(new RegExp(quarterTomatoEmoji, 'g')) || []).length * 0.25;
+						const taskBody = line.trim().slice(6);
+						const filePath = file.path;
+						const task = new Task(taskBody, filePath, line, async (self, elapsedSeconds) => {
+							if (taskBody !== this.selectedTaskBody) return;
+							const file = this.app.vault.getAbstractFileByPath(filePath) as TFile;
+							if (file) {
+								const content = await this.app.vault.read(file);
+								const setting = {
+									fullTomatoEmoji: this.plugin.settings.tomatoEmoji,
+									halfTomatoEmoji: this.plugin.settings.halfTomatoEmoji,
+									quarterTomatoEmoji: this.plugin.settings.quarterTomatoEmoji,
+									workMinutesPerTomato: this.plugin.settings.workDuration
+								};
+								const newTask = updateTaskBodyAfterElapsedMinutes(setting, taskBody, elapsedSeconds / 60);
+								if (newTask === taskBody) return;
+								
+								const newLine = '- [ ] ' + newTask;
+								self.task = newTask;
+								self.line = newLine;
+								this.selectedTaskBody = newTask;
+								this.selectedTaskLabel.empty();
+								await MarkdownRenderer.render(this.plugin.app, newTask, this.selectedTaskLabel, filePath, this);
+								const updatedContent = content.replace(line, newLine);
+								await this.app.vault.modify(file, updatedContent);
+							}
+						});
+						items.push(task);
+						const setting = {
+							fullTomatoEmoji: tomatoEmoji,
+							halfTomatoEmoji: halfTomatoEmoji,
+							quarterTomatoEmoji: quarterTomatoEmoji,
+							workMinutesPerTomato: workDuration
+						};
+						tomatoCount += getRemainingMinutesFromTaskBody(setting, line) / workDuration;
 					}
 				}
 
 				if (items.length > 0) {
-					fileItems.push({ fileName: file.name.replace(/\.[^/.]+$/, ""), filePath: file.path, items, tomatoCount });
+					this.fileItems.push({ fileName: file.name.replace(/\.[^/.]+$/, ""), filePath: file.path, items, tomatoCount });
 				}
 			} catch (error) {
 				console.error(`Error reading file ${file.path}:`, error);
 			}
 		}
 
-		fileItems = fileItems.sort((a, b) => a.fileName.localeCompare(b.fileName));
+		this.fileItems = this.fileItems.sort((a, b) => a.fileName.localeCompare(b.fileName));
 		this.checklistContainer.empty();
 
-		fileItems.forEach(fileItem => {
+		this.fileItems.forEach(fileItem => {
 			const { fileName, filePath, items, tomatoCount } = fileItem;
 			const totalMinutes = tomatoCount * (workDuration + breakDuration);
 			const hours = Math.floor(totalMinutes / 60);
@@ -329,29 +401,32 @@ class ChecklistView extends ItemView {
 				await this.renderChecklistItem(item, checklistContent);
 			});
 		});
+
+		if (!this.findSelectedTask()) {
+			this.clearSelectedTask();
+		}
 	}
 
-
-	async renderChecklistItem(item: { task: string, path: string, line: string }, container: HTMLElement) {
+	async renderChecklistItem(item: Task, container: HTMLElement) {
 		const itemEl = container.createEl('div', { cls: 'checklist-item' });
-	
+
 		const labelEl = itemEl.createEl('label', { cls: 'checklist-item-label' });
 		const checkbox = labelEl.createEl('input');
 		checkbox.type = 'checkbox';
 		checkbox.onclick = async () => {
+			await this.clearSelectedTask();
 			await this.markItemAsDone(item);
 		};
-	
+
 		const markdownContainer = labelEl.createDiv();
-		await MarkdownRenderer.render(this.plugin.app, item.task.slice(6), markdownContainer, item.path, this);
-	
+		await MarkdownRenderer.render(this.plugin.app, item.task, markdownContainer, item.path, this);
+
 		const selectButton = itemEl.createEl('a', { cls: 'clickable-icon', title: 'Focus on' });
 		setIcon(selectButton, 'circle-dot');
 		selectButton.onclick = () => this.selectTask(item);
 	}
-	
 
-	async markItemAsDone(item: { task: string, path: string, line: string }) {
+	async markItemAsDone(item: Task) {
 		try {
 			const file = this.plugin.app.vault.getAbstractFileByPath(item.path) as TFile;
 
@@ -366,19 +441,28 @@ class ChecklistView extends ItemView {
 		}
 	}
 
-	private async selectTask(item: { task: string, path: string, line: string }) {
-		this.selectedTask = item;
+	private async selectTask(item: Task) {
+		await this.findSelectedTask()?.deactivate();
+
+		this.selectedTaskBody = item.task;
 		this.selectedTaskLabel.empty();
-		await MarkdownRenderer.render(this.plugin.app, item.task.slice(6), this.selectedTaskLabel, item.path, this);
+		await MarkdownRenderer.render(this.plugin.app, item.task, this.selectedTaskLabel, item.path, this);
 		this.clearTaskButton.show();
+		if (this.timerInterval && this.isWorkPeriod) {
+			this.findSelectedTask()?.activate();
+		}
 	}
-	
-	private clearSelectedTask() {
-		this.selectedTask = null;
+
+	private async clearSelectedTask() {
+		await this.findSelectedTask()?.deactivate();
+		this.selectedTaskBody = null;
 		this.selectedTaskLabel.textContent = 'No task selected';
 		this.clearTaskButton.hide();
 	}
-	
+
+	private findSelectedTask() {
+		return this.fileItems.flatMap(fileItem => fileItem.items).find(item => item.task === this.selectedTaskBody);
+	}
 }
 
 class ChecklistSettingTab extends PluginSettingTab {

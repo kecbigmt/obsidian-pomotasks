@@ -1,4 +1,4 @@
-import { App, Plugin, PluginSettingTab, Setting, TFile, ItemView, WorkspaceLeaf, MarkdownRenderer, setIcon, TFolder } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, TFile, ItemView, WorkspaceLeaf, MarkdownRenderer, setIcon, TFolder, Notice } from 'obsidian';
 import { updateTaskBodyAfterElapsedMinutes, getRemainingMinutesFromTaskBody } from './lib/tomatoCalculation';
 
 interface ChecklistPluginSettings {
@@ -232,6 +232,13 @@ class ChecklistView extends ItemView {
 			this.updateTimerDisplay();
 
 			if (this.remainingTime <= 0) {
+				const message = this.isWorkPeriod ? 'Work session ended' : 'Break session ended';
+				if (window.Notification && Notification.permission === 'granted') {
+					new Notification(message);
+				} else {
+					new Notice(message);
+				}
+
 				this.clearTimer();
 				this.isWorkPeriod = !this.isWorkPeriod;
 				this.resetTimer();

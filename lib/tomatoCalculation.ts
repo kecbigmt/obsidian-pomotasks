@@ -5,39 +5,35 @@ export type PomodoroSetting = {
     workMinutesPerTomato: number;
 };
 
-export function getRemainingMinutesFromTaskLine(setting: PomodoroSetting, taskLine: string): number {
+export function getRemainingMinutesFromTaskBody(setting: PomodoroSetting, task: string): number {
     const { fullTomatoEmoji, halfTomatoEmoji, quarterTomatoEmoji } = setting;
-    const unconsumedTomatoString = taskLine.replace(/~~.*?~~/g, '').match(new RegExp(`[${fullTomatoEmoji}${halfTomatoEmoji}${quarterTomatoEmoji}]`, 'g'))?.join('') || '';
+    const unconsumedTomatoString = task.replace(/~~.*?~~/g, '').match(new RegExp(`[${fullTomatoEmoji}${halfTomatoEmoji}${quarterTomatoEmoji}]`, 'g'))?.join('') || '';
     return parseTomatoEmojisIntoMinutes(setting, unconsumedTomatoString);
 }
 
-export function updateTaskLineAfterElapsedMinutes(setting: PomodoroSetting, taskLine: string, workMinutes: number): string {
+export function updateTaskBodyAfterElapsedMinutes(setting: PomodoroSetting, task: string, workMinutes: number): string {
     const emojisPattern = `[\\+${setting.fullTomatoEmoji}${setting.halfTomatoEmoji}${setting.quarterTomatoEmoji}]`;
     
-    const taskLineBody = taskLine.replace(/- \[ \] /, '');
     const consumedEmojisRegexp = new RegExp(`~~${emojisPattern}+~~`, 'g');
 
-    const consumedPart = taskLineBody.match(consumedEmojisRegexp)?.join(' ') || '';
-    const taskLineBodyWithoutConsumed = taskLineBody.replace(consumedEmojisRegexp, '').trim();
+    const consumedPart = task.match(consumedEmojisRegexp)?.join(' ') || '';
+    const taskWithoutConsumed = task.replace(consumedEmojisRegexp, '').trim();
 
     const unconsumedEmojisRegexp = new RegExp(`${emojisPattern}+`, 'g');
-    const unconsumedPart = taskLineBodyWithoutConsumed.match(unconsumedEmojisRegexp)?.join('') || '';
+    const unconsumedPart = taskWithoutConsumed.match(unconsumedEmojisRegexp)?.join('') || '';
 
-    const taskName = taskLineBodyWithoutConsumed.replace(unconsumedEmojisRegexp, '').trim();
+    const taskName = taskWithoutConsumed.replace(unconsumedEmojisRegexp, '').trim();
 
     // Subtract work minutes from unconsumed part
     const updatedUnconsumedPart = subtractMinutesFromTomatoEmojis(setting, unconsumedPart, workMinutes);
 
     // Build updated task line
-    let updatedTaskLine = '- [ ]';
-    if (consumedPart) {
-        updatedTaskLine += ` ${consumedPart}`;
-    }
+    let updatedTask = consumedPart ?? '';
     if (updatedUnconsumedPart) {
-        updatedTaskLine += ` ${updatedUnconsumedPart}`;
+        updatedTask += updatedTask === '' ? updatedUnconsumedPart : ` ${updatedUnconsumedPart}`;
     }
-    updatedTaskLine += ` ${taskName}`;
-    return updatedTaskLine;
+    updatedTask += ` ${taskName}`;
+    return updatedTask;
 }
 
 

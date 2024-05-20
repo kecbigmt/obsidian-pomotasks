@@ -1,5 +1,7 @@
 import { App, Plugin, PluginSettingTab, Setting, TFile, ItemView, WorkspaceLeaf, MarkdownRenderer, setIcon, TFolder, Notice } from 'obsidian';
 import { updateTaskBodyAfterElapsedMinutes, getRemainingMinutesFromTaskBody } from './lib/tomatoCalculation';
+import TimerComponent from './Timer.svelte';
+import store from './store';
 
 interface ChecklistPluginSettings {
 	autoUpdate: boolean;
@@ -146,15 +148,10 @@ class ChecklistView extends ItemView {
 	private checklistContainer: HTMLElement;
 	private selectedTaskContainer: HTMLElement;
 	private timerContainer: HTMLElement;
-	private startButton: HTMLButtonElement;
-	private pauseButton: HTMLButtonElement;
-	private resetButton: HTMLButtonElement;
-	private skipButton: HTMLButtonElement;
-	private timerDisplay: HTMLElement;
+	private timerComponent: TimerComponent | undefined;
 	private timerInterval: number | null = null;
 	private remainingTime: number; // in seconds
 	private isWorkPeriod: boolean = true; // true for work, false for break
-	private periodLabel: HTMLElement;
 	private plugin: ChecklistPlugin;
 	private selectedTaskBody: string | null = null;
 	private selectedTaskLabel: HTMLElement;
@@ -184,43 +181,32 @@ class ChecklistView extends ItemView {
 	}
 
 	async onOpen() {
+		this.timerComponent = new TimerComponent({
+			target: this.timerContainer,
+			props: {
+				startTimer: this.startTimer.bind(this),
+				pauseTimer: this.pauseTimer.bind(this),
+				resetTimer: this.resetTimer.bind(this),
+				skipTimer: this.skipTimer.bind(this)
+			}
+		});
 		this.createTimerUI();
 		this.updateChecklist();
 	}
 
 	async onClose() {
 		this.clearTimer();
+		this.timerComponent?.$destroy();
 	}
 
 	private createTimerUI() {
-		const displayContainer = this.timerContainer.createDiv({ cls: 'display-group' });
-		this.periodLabel = displayContainer.createEl('div', { text: this.isWorkPeriod ? '🏃 Work' : '☕️ Break', cls: 'period-label' });
-		this.timerDisplay = displayContainer.createEl('div', { text: '25:00', cls: 'timer-display' });
-
 		this.selectedTaskLabel = this.selectedTaskContainer.createEl('div', { text: 'No task selected', cls: 'selected-task-label' });
 		this.clearTaskButton = this.selectedTaskContainer.createEl('a', { cls: 'clickable-icon', title: 'Cancel' });
 		setIcon(this.clearTaskButton, 'x-circle');
 		this.clearTaskButton.onclick = () => this.clearSelectedTask();
 		this.clearTaskButton.hide();
-
-		const buttonContainer = this.timerContainer.createDiv({ cls: 'button-group' });
-
-		this.resetButton = buttonContainer.createEl('button', { cls: 'timer-button' });
-		setIcon(this.resetButton, 'rotate-ccw');
-		this.startButton = buttonContainer.createEl('button', { cls: 'timer-button' });
-		setIcon(this.startButton, 'play');
-		this.pauseButton = buttonContainer.createEl('button', { cls: 'timer-button' });
-		setIcon(this.pauseButton, 'pause');
-		this.skipButton = buttonContainer.createEl('button', { cls: 'timer-button' });
-		setIcon(this.skipButton, 'chevron-last');
-
-		this.startButton.onclick = this.startTimer.bind(this);
-		this.pauseButton.onclick = this.pauseTimer.bind(this);
-		this.resetButton.onclick = this.resetTimer.bind(this);
-		this.skipButton.onclick = this.skipTimer.bind(this);
-
+	
 		this.resetTimer();
-		this.updateTimerButtons(); // タイマーボタンの初期表示を更新
 	}
 
 	private startTimer() {
@@ -228,8 +214,7 @@ class ChecklistView extends ItemView {
 
 		this.timerInterval = window.setInterval(() => {
 			this.remainingTime--;
-
-			this.updateTimerDisplay();
+			store.remainingTime.set(this.remainingTime);
 
 			if (this.remainingTime <= 0) {
 				const message = this.isWorkPeriod ? 'Work session ended' : 'Break session ended';
@@ -241,12 +226,11 @@ class ChecklistView extends ItemView {
 
 				this.clearTimer();
 				this.isWorkPeriod = !this.isWorkPeriod;
+				store.isWorkPeriod.set(this.isWorkPeriod);
 				this.resetTimer();
-				this.updateTimerButtons(); // タイマーボタンの表示を更新
 			}
 		}, 1000);
-
-		this.updateTimerButtons(); // タイマーボタンの表示を更新
+		store.isTimerRunning.set(true);
 
 		const selectedTask = this.findSelectedTask();
 		if (selectedTask && this.isWorkPeriod) {
@@ -256,7 +240,6 @@ class ChecklistView extends ItemView {
 
 	private pauseTimer() {
 		this.clearTimer();
-		this.updateTimerButtons(); // タイマーボタンの表示を更新
 		this.findSelectedTask()?.pause();
 	}
 
@@ -265,9 +248,7 @@ class ChecklistView extends ItemView {
 
 		this.clearTimer();
 		this.remainingTime = (this.isWorkPeriod ? this.plugin.settings.workDuration : this.plugin.settings.breakDuration) * 60;
-		this.updateTimerDisplay();
-		this.updatePeriodLabel();
-		this.updateTimerButtons(); // タイマーボタンの表示を更新
+		store.remainingTime.set(this.remainingTime);
 	}
 
 	private skipTimer() {
@@ -275,35 +256,16 @@ class ChecklistView extends ItemView {
 
 		this.clearTimer();
 		this.isWorkPeriod = !this.isWorkPeriod;
+		store.isWorkPeriod.set(this.isWorkPeriod);
 		this.resetTimer();
-		this.updateTimerButtons(); // タイマーボタンの表示を更新
-	}
-
-	private updateTimerButtons() {
-		if (this.timerInterval) {
-			this.startButton.hide();
-			this.pauseButton.show();
-		} else {
-			this.startButton.show();
-			this.pauseButton.hide();
-		}
 	}
 
 	private clearTimer() {
 		if (this.timerInterval) {
 			clearInterval(this.timerInterval);
 			this.timerInterval = null;
+			store.isTimerRunning.set(false);
 		}
-	}
-
-	private updateTimerDisplay() {
-		const minutes = Math.floor(this.remainingTime / 60);
-		const seconds = this.remainingTime % 60;
-		this.timerDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-	}
-
-	private updatePeriodLabel() {
-		this.periodLabel.textContent = this.isWorkPeriod ? '🏃 Work' : '☕️ Break';
 	}
 
 	getRemainingTime(): string {

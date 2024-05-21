@@ -28,8 +28,8 @@ const DEFAULT_SETTINGS: ChecklistPluginSettings = {
 const CHECKLIST_VIEW_TYPE = 'checklist-view';
 
 export default class ChecklistPlugin extends Plugin {
-	settings: ChecklistPluginSettings;
-	statusBarItem: HTMLElement;
+	settings: ChecklistPluginSettings | null = null;
+	statusBarItem: HTMLElement | null = null;
 
 	async onload() {
 		await this.loadSettings();
@@ -41,7 +41,7 @@ export default class ChecklistPlugin extends Plugin {
 
 		this.addSettingTab(new ChecklistSettingTab(this.app, this));
 
-		if (this.settings.autoUpdate) {
+		if (this.settings?.autoUpdate) {
 			const updateHandler = this.debounce(() => this.updateActiveChecklistView(), 300);
 			this.registerEvent(this.app.vault.on('modify', updateHandler));
 			this.registerEvent(this.app.vault.on('create', updateHandler));
@@ -143,8 +143,8 @@ class ChecklistView extends ItemView {
 	private timerComponent: TimerComponent | undefined;
 	private plugin: ChecklistPlugin;
 	private selectedTaskBody: string | null = null;
-	private selectedTaskLabel: HTMLElement;
-	private clearTaskButton: HTMLAnchorElement;
+	private selectedTaskLabel: HTMLElement | null = null;
+	private clearTaskButton: HTMLAnchorElement | null = null;
 	private fileItems: { fileName: string, filePath: string, items: Task[], tomatoCount: number }[] = [];
 	private timerStatus: 'running' | 'paused' | 'stopped' = 'stopped';
 	private unsubscribeTimerStatus: Unsubscriber | null = null;
@@ -182,6 +182,7 @@ class ChecklistView extends ItemView {
 			this.sessionMode = mode;
 		});
 
+		if (!this.plugin.settings) throw new Error('Settings not loaded');
 		this.timerComponent = new TimerComponent({
 			target: this.timerContainer,
 			props: {
@@ -233,6 +234,7 @@ class ChecklistView extends ItemView {
 
 	async updateChecklist() {
 		const files = this.plugin.app.vault.getMarkdownFiles();
+		if (!this.plugin.settings) throw new Error('Settings not loaded');
 		const { tomatoEmoji, halfTomatoEmoji, quarterTomatoEmoji, workDuration, breakDuration, folderPath } = this.plugin.settings;
 		this.fileItems = [];
 
@@ -253,6 +255,7 @@ class ChecklistView extends ItemView {
 						const filePath = file.path;
 						const task = new Task(taskBody, filePath, line, async (self, elapsedSeconds) => {
 							if (taskBody !== this.selectedTaskBody) return;
+							if (!this.plugin.settings) throw new Error('Settings not loaded');
 							const file = this.app.vault.getAbstractFileByPath(filePath) as TFile;
 							if (file) {
 								const content = await this.app.vault.read(file);
@@ -269,8 +272,10 @@ class ChecklistView extends ItemView {
 								self.task = newTask;
 								self.line = newLine;
 								this.selectedTaskBody = newTask;
-								this.selectedTaskLabel.empty();
-								await MarkdownRenderer.render(this.plugin.app, newTask, this.selectedTaskLabel, filePath, this);
+								if (this.selectedTaskLabel) {
+									this.selectedTaskLabel.empty();
+									await MarkdownRenderer.render(this.plugin.app, newTask, this.selectedTaskLabel, filePath, this);
+								}
 								const updatedContent = content.replace(line, newLine);
 								await this.app.vault.modify(file, updatedContent);
 							}
@@ -370,9 +375,11 @@ class ChecklistView extends ItemView {
 		await this.findSelectedTask()?.deactivate();
 
 		this.selectedTaskBody = item.task;
-		this.selectedTaskLabel.empty();
-		await MarkdownRenderer.render(this.plugin.app, item.task, this.selectedTaskLabel, item.path, this);
-		this.clearTaskButton.show();
+		if (this.selectedTaskLabel) {
+			this.selectedTaskLabel.empty();
+			await MarkdownRenderer.render(this.plugin.app, item.task, this.selectedTaskLabel, item.path, this);
+		}
+		this.clearTaskButton?.show();
 		if (this.timerStatus === 'running' && this.sessionMode === 'work') {
 			this.findSelectedTask()?.activate();
 		}
@@ -381,8 +388,8 @@ class ChecklistView extends ItemView {
 	private async clearSelectedTask() {
 		await this.findSelectedTask()?.deactivate();
 		this.selectedTaskBody = null;
-		this.selectedTaskLabel.textContent = 'No task selected';
-		this.clearTaskButton.hide();
+		if (this.selectedTaskLabel) this.selectedTaskLabel.textContent = 'No task selected';
+		this.clearTaskButton?.hide();
 	}
 
 	private findSelectedTask() {
@@ -419,8 +426,9 @@ class ChecklistSettingTab extends PluginSettingTab {
 			.setName('Auto Update')
 			.setDesc('Automatically update checklist when files are modified.')
 			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.autoUpdate)
+				.setValue(this.plugin.settings?.autoUpdate ?? false)
 				.onChange(async (value) => {
+					if (!this.plugin.settings) throw new Error('Settings not loaded');
 					this.plugin.settings.autoUpdate = value;
 					await this.plugin.saveSettings();
 				}));
@@ -430,8 +438,9 @@ class ChecklistSettingTab extends PluginSettingTab {
 			.setDesc('Emoji to use for representing a full Pomodoro session.')
 			.addText(text => text
 				.setPlaceholder('Enter emoji')
-				.setValue(this.plugin.settings.tomatoEmoji)
+				.setValue(this.plugin.settings?.tomatoEmoji ?? '🍅')
 				.onChange(async (value) => {
+					if (!this.plugin.settings) throw new Error('Settings not loaded');
 					this.plugin.settings.tomatoEmoji = value || '🍅';
 					await this.plugin.saveSettings();
 					this.plugin.updateActiveChecklistView();
@@ -442,8 +451,9 @@ class ChecklistSettingTab extends PluginSettingTab {
 			.setDesc('Emoji to use for representing half a Pomodoro session.')
 			.addText(text => text
 				.setPlaceholder('Enter emoji')
-				.setValue(this.plugin.settings.halfTomatoEmoji)
+				.setValue(this.plugin.settings?.halfTomatoEmoji ?? '🍓')
 				.onChange(async (value) => {
+					if (!this.plugin.settings) throw new Error('Settings not loaded');
 					this.plugin.settings.halfTomatoEmoji = value || '🍓';
 					await this.plugin.saveSettings();
 					this.plugin.updateActiveChecklistView();
@@ -454,8 +464,9 @@ class ChecklistSettingTab extends PluginSettingTab {
 			.setDesc('Emoji to use for representing a quarter of a Pomodoro session.')
 			.addText(text => text
 				.setPlaceholder('Enter emoji')
-				.setValue(this.plugin.settings.quarterTomatoEmoji)
+				.setValue(this.plugin.settings?.quarterTomatoEmoji ?? '🍒')
 				.onChange(async (value) => {
+					if (!this.plugin.settings) throw new Error('Settings not loaded');
 					this.plugin.settings.quarterTomatoEmoji = value || '🍒';
 					await this.plugin.saveSettings();
 					this.plugin.updateActiveChecklistView();
@@ -466,10 +477,11 @@ class ChecklistSettingTab extends PluginSettingTab {
 			.setDesc('Duration of a work session in minutes.')
 			.addText(text => text
 				.setPlaceholder('Enter minutes')
-				.setValue(this.plugin.settings.workDuration.toString())
+				.setValue(this.plugin.settings?.workDuration.toString() ?? '25')
 				.onChange(async (value) => {
 					const numValue = parseInt(value, 10);
 					if (!isNaN(numValue)) {
+						if (!this.plugin.settings) throw new Error('Settings not loaded');
 						this.plugin.settings.workDuration = numValue;
 						await this.plugin.saveSettings();
 						this.plugin.updateActiveChecklistView();
@@ -481,10 +493,11 @@ class ChecklistSettingTab extends PluginSettingTab {
 			.setDesc('Duration of a break session in minutes.')
 			.addText(text => text
 				.setPlaceholder('Enter minutes')
-				.setValue(this.plugin.settings.breakDuration.toString())
+				.setValue(this.plugin.settings?.breakDuration.toString() ?? '5')
 				.onChange(async (value) => {
 					const numValue = parseInt(value, 10);
 					if (!isNaN(numValue)) {
+						if (!this.plugin.settings) throw new Error('Settings not loaded');
 						this.plugin.settings.breakDuration = numValue;
 						await this.plugin.saveSettings();
 						this.plugin.updateActiveChecklistView();
@@ -499,8 +512,9 @@ class ChecklistSettingTab extends PluginSettingTab {
 				folderOptions.forEach(folder => {
 					dropdown.addOption(folder, folder);
 				});
-				dropdown.setValue(this.plugin.settings.folderPath);
+				dropdown.setValue(this.plugin.settings?.folderPath ?? '');
 				dropdown.onChange(async (value) => {
+					if (!this.plugin.settings) throw new Error('Settings not loaded');
 					this.plugin.settings.folderPath = value;
 					await this.plugin.saveSettings();
 					this.plugin.updateActiveChecklistView();

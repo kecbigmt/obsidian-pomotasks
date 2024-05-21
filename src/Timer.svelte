@@ -67,7 +67,7 @@
 	});
 
 	$: {
-		plugin.statusBarItem.setText(`${sessionMode === 'work' ? '🏃' : '☕️'} ${displayRemainingTime}`);
+		plugin.statusBarItem?.setText(`${sessionMode === 'work' ? '🏃' : '☕️'} ${displayRemainingTime}`);
 	}
 
 	const clearInterval = () => {

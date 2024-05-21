@@ -1,4 +1,5 @@
 import { App, Plugin, PluginSettingTab, Setting, TFile, ItemView, WorkspaceLeaf, MarkdownRenderer, setIcon, TFolder, Notice } from 'obsidian';
+import type { Unsubscriber } from 'svelte/store';
 
 import { updateTaskBodyAfterElapsedMinutes, getRemainingMinutesFromTaskBody } from './lib/tomatoCalculation';
 import TimerComponent from './Timer.svelte';
@@ -145,6 +146,10 @@ class ChecklistView extends ItemView {
 	private selectedTaskLabel: HTMLElement;
 	private clearTaskButton: HTMLAnchorElement;
 	private fileItems: { fileName: string, filePath: string, items: Task[], tomatoCount: number }[] = [];
+	private timerStatus: 'running' | 'paused' | 'stopped' = 'stopped';
+	private unsubscribeTimerStatus: Unsubscriber | null = null;
+	private sessionMode: 'work' | 'break' = 'work';
+	private unsubscribeSessionMode: Unsubscriber | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: ChecklistPlugin) {
 		super(leaf);
@@ -170,6 +175,12 @@ class ChecklistView extends ItemView {
 
 	async onOpen() {
 		store.plugin.set(this.plugin);
+		this.unsubscribeTimerStatus = store.timerStatus.subscribe((status) => {
+			this.timerStatus = status;
+		});
+		this.unsubscribeSessionMode = store.sessionMode.subscribe((mode) => {
+			this.sessionMode = mode;
+		});
 
 		this.timerComponent = new TimerComponent({
 			target: this.timerContainer,
@@ -208,6 +219,8 @@ class ChecklistView extends ItemView {
 
 	async onClose() {
 		this.timerComponent?.$destroy();
+		this.unsubscribeTimerStatus?.();
+		this.unsubscribeSessionMode?.();
 	}
 
 	private createTimerUI() {
@@ -360,7 +373,7 @@ class ChecklistView extends ItemView {
 		this.selectedTaskLabel.empty();
 		await MarkdownRenderer.render(this.plugin.app, item.task, this.selectedTaskLabel, item.path, this);
 		this.clearTaskButton.show();
-		if (this.timerInterval && this.isWorkPeriod) {
+		if (this.timerStatus === 'running' && this.sessionMode === 'work') {
 			this.findSelectedTask()?.activate();
 		}
 	}

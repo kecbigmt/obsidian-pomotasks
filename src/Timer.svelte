@@ -16,7 +16,14 @@
 	let skipButtonEl: HTMLButtonElement | undefined;
 	let clearTaskButtonEl: HTMLButtonElement | undefined;
 
+
+	let timerInterval: number | undefined;
+	let lastTick: number;
+
 	let sessionMode: "work" | "break" = "work";
+	$: {
+		store.sessionMode.set(sessionMode);
+	}
 
 	type TimerState =
 		| {
@@ -33,8 +40,9 @@
 		  }
 		| null;
 	let timerState: TimerState = null;
-	let timerInterval: number | undefined;
-	let lastTick: number;
+	$: {
+		store.timerStatus.set(timerState?.type ?? 'stopped');
+	}
 	
 	$: timeboxDuration =
 		(sessionMode === "work" ? workMinutes : breakMinutes) * 60000;

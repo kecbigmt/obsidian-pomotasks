@@ -1,7 +1,8 @@
 import { App, Plugin, PluginSettingTab, Setting, TFile, ItemView, WorkspaceLeaf, MarkdownRenderer, setIcon, TFolder, Notice } from 'obsidian';
+
 import { updateTaskBodyAfterElapsedMinutes, getRemainingMinutesFromTaskBody } from './lib/tomatoCalculation';
 import TimerComponent from './Timer.svelte';
-import store from 'store';
+import store from './store';
 
 interface ChecklistPluginSettings {
 	autoUpdate: boolean;

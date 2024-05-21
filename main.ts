@@ -1,7 +1,7 @@
 import { App, Plugin, PluginSettingTab, Setting, TFile, ItemView, WorkspaceLeaf, MarkdownRenderer, setIcon, TFolder, Notice } from 'obsidian';
 import { updateTaskBodyAfterElapsedMinutes, getRemainingMinutesFromTaskBody } from './lib/tomatoCalculation';
 import TimerComponent from './Timer.svelte';
-import store from './store';
+import store from 'store';
 
 interface ChecklistPluginSettings {
 	autoUpdate: boolean;
@@ -48,7 +48,6 @@ export default class ChecklistPlugin extends Plugin {
 
 		this.activateView();
 		this.statusBarItem = this.addStatusBarItem();
-		this.registerInterval(window.setInterval(() => this.updateStatusBar(), 1000));
 	}
 
 	onunload() {
@@ -92,15 +91,6 @@ export default class ChecklistPlugin extends Plugin {
 			clearTimeout(timeout);
 			timeout = window.setTimeout(func, wait);
 		};
-	}
-
-	updateStatusBar() {
-		const view = this.app.workspace.getLeavesOfType(CHECKLIST_VIEW_TYPE).first()?.view as ChecklistView;
-		if (view) {
-			this.statusBarItem.setText(view.getRemainingTime());
-		} else {
-			this.statusBarItem.setText('No active timer');
-		}
 	}
 }
 
@@ -150,7 +140,6 @@ class ChecklistView extends ItemView {
 	private timerContainer: HTMLElement;
 	private timerComponent: TimerComponent | undefined;
 	private timerInterval: number | null = null;
-	private remainingTime: number; // in seconds
 	private isWorkPeriod: boolean = true; // true for work, false for break
 	private plugin: ChecklistPlugin;
 	private selectedTaskBody: string | null = null;
@@ -181,21 +170,44 @@ class ChecklistView extends ItemView {
 	}
 
 	async onOpen() {
+		store.plugin.set(this.plugin);
+
 		this.timerComponent = new TimerComponent({
 			target: this.timerContainer,
 			props: {
-				startTimer: this.startTimer.bind(this),
-				pauseTimer: this.pauseTimer.bind(this),
-				resetTimer: this.resetTimer.bind(this),
-				skipTimer: this.skipTimer.bind(this)
+				workMinutes: this.plugin.settings.workDuration,
+				breakMinutes: this.plugin.settings.breakDuration
 			}
 		});
+		this.timerComponent.$on('timer-start', () => {
+			const selectedTask = this.findSelectedTask();
+			if (selectedTask && this.isWorkPeriod) {
+				selectedTask.activate();
+			}
+		});
+		this.timerComponent.$on('timer-pause', () => {
+			this.findSelectedTask()?.pause();
+		});
+		this.timerComponent.$on('timer-reset', ({ detail: { sessionMode, displayRemainingTime } }) => {
+			this.findSelectedTask()?.reset();
+		});
+		this.timerComponent.$on('timer-skip', ({ detail: { sessionMode, displayRemainingTime } }) => {
+			this.findSelectedTask()?.deactivate();
+		});
+		this.timerComponent.$on('timer-run-out', ({ detail: { sessionMode } }) => {
+			const message = sessionMode === 'work' ? 'Work session ended' : 'Break session ended';
+				if (window.Notification && Notification.permission === 'granted') {
+					new Notification(message);
+				} else {
+					new Notice(message);
+				}
+		});
+
 		this.createTimerUI();
 		this.updateChecklist();
 	}
 
 	async onClose() {
-		this.clearTimer();
 		this.timerComponent?.$destroy();
 	}
 
@@ -205,74 +217,6 @@ class ChecklistView extends ItemView {
 		setIcon(this.clearTaskButton, 'x-circle');
 		this.clearTaskButton.onclick = () => this.clearSelectedTask();
 		this.clearTaskButton.hide();
-	
-		this.resetTimer();
-	}
-
-	private startTimer() {
-		if (this.timerInterval) return;
-
-		this.timerInterval = window.setInterval(() => {
-			this.remainingTime--;
-			store.remainingTime.set(this.remainingTime);
-
-			if (this.remainingTime <= 0) {
-				const message = this.isWorkPeriod ? 'Work session ended' : 'Break session ended';
-				if (window.Notification && Notification.permission === 'granted') {
-					new Notification(message);
-				} else {
-					new Notice(message);
-				}
-
-				this.clearTimer();
-				this.isWorkPeriod = !this.isWorkPeriod;
-				store.isWorkPeriod.set(this.isWorkPeriod);
-				this.resetTimer();
-			}
-		}, 1000);
-		store.isTimerRunning.set(true);
-
-		const selectedTask = this.findSelectedTask();
-		if (selectedTask && this.isWorkPeriod) {
-			selectedTask.activate();
-		}
-	}
-
-	private pauseTimer() {
-		this.clearTimer();
-		this.findSelectedTask()?.pause();
-	}
-
-	private resetTimer() {
-		this.findSelectedTask()?.reset();
-
-		this.clearTimer();
-		this.remainingTime = (this.isWorkPeriod ? this.plugin.settings.workDuration : this.plugin.settings.breakDuration) * 60;
-		store.remainingTime.set(this.remainingTime);
-	}
-
-	private skipTimer() {
-		this.findSelectedTask()?.deactivate();
-
-		this.clearTimer();
-		this.isWorkPeriod = !this.isWorkPeriod;
-		store.isWorkPeriod.set(this.isWorkPeriod);
-		this.resetTimer();
-	}
-
-	private clearTimer() {
-		if (this.timerInterval) {
-			clearInterval(this.timerInterval);
-			this.timerInterval = null;
-			store.isTimerRunning.set(false);
-		}
-	}
-
-	getRemainingTime(): string {
-		const minutes = Math.floor(this.remainingTime / 60);
-		const seconds = this.remainingTime % 60;
-		const periodEmoji = this.isWorkPeriod ? '🏃' : '☕️';
-		return `${periodEmoji} ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 	}
 
 	async updateChecklist() {

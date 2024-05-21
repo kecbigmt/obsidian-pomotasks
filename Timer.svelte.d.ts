@@ -1,12 +1,22 @@
 import { SvelteComponent } from 'svelte';
 
 interface TimerProps {
-    resetTimer: () => void;
-    startTimer: () => void;
-    pauseTimer: () => void;
-    skipTimer: () => void;
-  }
+    workMinutes: number;
+    breakMinutes: number;
+}
 
-class TimerComponent extends SvelteComponent<TimerProps, {}> {}
+type SessionMode = 'work' | 'break';
+type Event = CustomEvent<{ sessionMode: 'work' | 'break', displayRemainingTime: string  }>;
+
+interface TimerEvents {
+    'timer-start': Event;
+    'timer-pause': Event;
+    'timer-reset': Event;
+    'timer-skip': Event;
+    'timer-run-out': Event;
+    'timer-resume': Event;
+}
+
+class TimerComponent extends SvelteComponent<TimerProps, TimerEvents> {}
 
 export default TimerComponent;

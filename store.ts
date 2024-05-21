@@ -1,7 +1,5 @@
 import { writable } from "svelte/store";
+import type ExamplePlugin from "./main";
 
-const remainingTime = writable(0);
-const isWorkPeriod = writable(false);
-const isTimerRunning = writable(false);
-
-export default { remainingTime, isWorkPeriod, isTimerRunning };
+const plugin = writable<ExamplePlugin>();
+export default { plugin };

@@ -1,38 +1,70 @@
 <script lang="ts">
 	import { setIcon } from "obsidian";
-	import { beforeUpdate, onDestroy } from "svelte";
-	import store from "./store";
+	import store from "store";
+	import { beforeUpdate, createEventDispatcher, onDestroy } from "svelte";
+	import type ChecklistPlugin from "main";
 
-	export let resetTimer = () => {};
-	export let startTimer = () => {};
-	export let pauseTimer = () => {};
-	export let skipTimer = () => {};
-	
-	let isTimerRunning = false;
-	const unsubscribeIsTimerRunning = store.isTimerRunning.subscribe(
-		(value) => {
-			isTimerRunning = value;
-		},
-	);
+	export let workMinutes = 25;
+	export let breakMinutes = 5;
 
-	let isWorkPeriod = true;
-	const unsubscribeIsWorkPeriod = store.isWorkPeriod.subscribe((value) => {
-		isWorkPeriod = value;
-	});
-
-	let remainingTime = 0;
-	const unsubscribeRemainingTime = store.remainingTime.subscribe((value) => {
-		remainingTime = value;
-	});
-
-	$: minutes = Math.floor(remainingTime / 60);
-	$: seconds = remainingTime % 60;
+	const dispatch = createEventDispatcher();
 
 	let resetButtonEl: HTMLButtonElement | undefined;
 	let startButtonEl: HTMLButtonElement | undefined;
 	let pauseButtonEl: HTMLButtonElement | undefined;
 	let skipButtonEl: HTMLButtonElement | undefined;
 	let clearTaskButtonEl: HTMLButtonElement | undefined;
+
+	let sessionMode: "work" | "break" = "work";
+
+	type TimerState =
+		| {
+				type: "running";
+				endsAt: number;
+				pauseAt: null;
+				notificationTriggered: boolean;
+		  }
+		| {
+				type: "paused";
+				endsAt: number;
+				pauseAt: number;
+				notificationTriggered: boolean;
+		  }
+		| null;
+	let timerState: TimerState = null;
+	let timerInterval: number | undefined;
+	let lastTick: number;
+	
+	$: timeboxDuration =
+		(sessionMode === "work" ? workMinutes : breakMinutes) * 60000;
+	$: remainingDuration = timeboxDuration;
+	$: minutes = Math.floor(Math.abs(remainingDuration) / 60000);
+	$: seconds = Math.floor((Math.abs(remainingDuration) % 60000) / 1000);
+	$: displayRemainingTime = `${remainingDuration < 0 ? "-" : ""}${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+
+	$: {
+		lastTick;
+		timerState;
+		remainingDuration = timerState?.type === "running"
+			? timerState.endsAt - Date.now()
+			: timerState?.type === "paused"
+				? timerState.endsAt - timerState.pauseAt
+				: timeboxDuration;
+	};
+
+	let plugin: ChecklistPlugin;
+	const unsubscribePlugin = store.plugin.subscribe((p) => {
+		plugin = p;
+	});
+
+	$: {
+		plugin.statusBarItem.setText(`${sessionMode === 'work' ? '🏃' : '☕️'} ${displayRemainingTime}`);
+	}
+
+	const clearInterval = () => {
+		if (timerInterval) window.clearInterval(timerInterval);
+		timerInterval = undefined;
+	};
 
 	beforeUpdate(() => {
 		if (startButtonEl) setIcon(startButtonEl, "play");
@@ -43,41 +75,108 @@
 	});
 
 	onDestroy(() => {
-		unsubscribeIsTimerRunning();
-		unsubscribeIsWorkPeriod();
-		unsubscribeRemainingTime();
+		clearInterval();
+		unsubscribePlugin();
 	});
 </script>
 
 <div class="timer">
 	<div class="display-group">
-		<div class="period-label">{isWorkPeriod ? "🏃 Work" : "☕️ Break"}</div>
+		<div class="period-label">{sessionMode === 'work' ? "🏃 Work" : "☕️ Break"}</div>
 		<div class="timer-display">
-			{`${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`}
+			{displayRemainingTime}
 		</div>
 	</div>
 	<div class="button-group">
 		<button
 			class="timer-button"
-			on:click={resetTimer}
+			on:click={() => {
+				timerState = null;
+				clearInterval();
+				dispatch("timer-reset", { sessionMode, displayRemainingTime });
+			}}
 			bind:this={resetButtonEl}
 		></button>
-		{#if isTimerRunning}
+		{#if timerState?.type === "running"}
 			<button
 				class="timer-button"
-				on:click={pauseTimer}
+				on:click={() => {
+					if (!timerState) return;
+
+					timerState = {
+						type: "paused",
+						endsAt: timerState.endsAt,
+						pauseAt: Date.now(),
+						notificationTriggered: timerState.notificationTriggered,
+					};
+					clearInterval();
+					dispatch("timer-pause", {
+						sessionMode,
+						displayRemainingTime,
+					});
+				}}
 				bind:this={pauseButtonEl}
 			></button>
 		{:else}
 			<button
 				class="timer-button"
-				on:click={startTimer}
+				on:click={() => {
+					if (timerState?.type === "paused") {
+						timerState = {
+							type: "running",
+							endsAt:
+								timerState.endsAt +
+								(Date.now() - timerState.pauseAt),
+							pauseAt: null,
+							notificationTriggered:
+								timerState.notificationTriggered,
+						};
+						dispatch("timer-resume", {
+							sessionMode,
+							displayRemainingTime,
+						});
+					} else {
+						timerState = {
+							type: "running",
+							endsAt: Date.now() + remainingDuration,
+							pauseAt: null,
+							notificationTriggered: false,
+						};
+						dispatch("timer-start", {
+							sessionMode,
+							displayRemainingTime,
+						});
+					}
+
+					clearInterval();
+					timerInterval = window.setInterval(() => {
+						lastTick = Date.now();
+						if (
+							timerState?.type === "running" &&
+							!timerState.notificationTriggered &&
+							remainingDuration <= 0
+						) {
+							timerState = {
+								type: "running",
+								endsAt: timerState.endsAt,
+								pauseAt: null,
+								notificationTriggered: true,
+							};
+							dispatch("timer-run-out", { sessionMode, displayRemainingTime });
+						}
+					}, 1000);
+				}}
 				bind:this={startButtonEl}
 			></button>
 		{/if}
 		<button
 			class="timer-button"
-			on:click={skipTimer}
+			on:click={() => {
+				timerState = null;
+				clearInterval();
+				sessionMode = sessionMode === "work" ? "break" : "work";
+				dispatch("timer-skip", { sessionMode, displayRemainingTime });
+			}}
 			bind:this={skipButtonEl}
 		></button>
 	</div>

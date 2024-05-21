@@ -140,8 +140,6 @@ class ChecklistView extends ItemView {
 	private selectedTaskContainer: HTMLElement;
 	private timerContainer: HTMLElement;
 	private timerComponent: TimerComponent | undefined;
-	private timerInterval: number | null = null;
-	private isWorkPeriod: boolean = true; // true for work, false for break
 	private plugin: ChecklistPlugin;
 	private selectedTaskBody: string | null = null;
 	private selectedTaskLabel: HTMLElement;
@@ -180,19 +178,19 @@ class ChecklistView extends ItemView {
 				breakMinutes: this.plugin.settings.breakDuration
 			}
 		});
-		this.timerComponent.$on('timer-start', () => {
+		this.timerComponent.$on('timer-start', ({ detail: { sessionMode } }) => {
 			const selectedTask = this.findSelectedTask();
-			if (selectedTask && this.isWorkPeriod) {
+			if (selectedTask && sessionMode === 'work') {
 				selectedTask.activate();
 			}
 		});
 		this.timerComponent.$on('timer-pause', () => {
 			this.findSelectedTask()?.pause();
 		});
-		this.timerComponent.$on('timer-reset', ({ detail: { sessionMode, displayRemainingTime } }) => {
+		this.timerComponent.$on('timer-reset', () => {
 			this.findSelectedTask()?.reset();
 		});
-		this.timerComponent.$on('timer-skip', ({ detail: { sessionMode, displayRemainingTime } }) => {
+		this.timerComponent.$on('timer-skip', () => {
 			this.findSelectedTask()?.deactivate();
 		});
 		this.timerComponent.$on('timer-run-out', ({ detail: { sessionMode } }) => {

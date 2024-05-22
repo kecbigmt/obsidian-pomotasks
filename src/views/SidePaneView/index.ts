@@ -4,7 +4,7 @@ import type { Unsubscriber } from 'svelte/store';
 import type ChecklistPlugin from '../../main';
 import { updateTaskBodyAfterElapsedMinutes, getRemainingMinutesFromTaskBody } from '../../lib/tomatoCalculation';
 import SidePaneComponent from './SidePane.svelte';
-import store from '../../store';
+import store, { ongoingTask } from '../../store';
 
 export const SIDEPANE_VIEW_TYPE = 'sidepane-view';
 
@@ -50,13 +50,10 @@ class Task {
 
 export class SidePaneView extends ItemView {
 	private checklistContainer: HTMLElement;
-	private selectedTaskContainer: HTMLElement;
-	private timerContainer: HTMLElement;
-	private timerComponent: SidePaneComponent | undefined;
+	private sidepaneContainer: HTMLElement; // TODO: Remove this line
+	private sidepaneComponent: SidePaneComponent | undefined;
 	private plugin: ChecklistPlugin;
 	private selectedTaskBody: string | null = null;
-	private selectedTaskLabel: HTMLElement | null = null;
-	private clearTaskButton: HTMLAnchorElement | null = null;
 	private fileItems: { fileName: string, filePath: string, items: Task[], tomatoCount: number }[] = [];
 	private timerStatus: 'running' | 'paused' | 'stopped' = 'stopped';
 	private unsubscribeTimerStatus: Unsubscriber | null = null;
@@ -67,8 +64,7 @@ export class SidePaneView extends ItemView {
 		super(leaf);
 		this.plugin = plugin;
 		this.contentEl.addClass('checklist-view');
-		this.timerContainer = this.contentEl.createDiv({ cls: 'timer-container' });
-		this.selectedTaskContainer = this.contentEl.createDiv({ cls: 'selected-task-container' });
+		this.sidepaneContainer = this.contentEl.createDiv(); // TODO: Remove this line
 		this.checklistContainer = this.contentEl.createDiv({ cls: 'checklist-container' });
 		this.updateChecklist = this.updateChecklist.bind(this);
 	}
@@ -95,29 +91,30 @@ export class SidePaneView extends ItemView {
 		});
 
 		if (!this.plugin.settings) throw new Error('Settings not loaded');
-		this.timerComponent = new SidePaneComponent({
-			target: this.timerContainer,
+		this.sidepaneComponent = new SidePaneComponent({
+			target: this.sidepaneContainer, // TODO: Replace by this.contentEl
 			props: {
 				workMinutes: this.plugin.settings.workDuration,
-				breakMinutes: this.plugin.settings.breakDuration
+				breakMinutes: this.plugin.settings.breakDuration,
+				parentObsidianComponent: this
 			}
 		});
-		this.timerComponent.$on('timer-start', ({ detail: { sessionMode } }) => {
+		this.sidepaneComponent.$on('timer-start', ({ detail: { sessionMode } }) => {
 			const selectedTask = this.findSelectedTask();
 			if (selectedTask && sessionMode === 'work') {
 				selectedTask.activate();
 			}
 		});
-		this.timerComponent.$on('timer-pause', () => {
+		this.sidepaneComponent.$on('timer-pause', () => {
 			this.findSelectedTask()?.pause();
 		});
-		this.timerComponent.$on('timer-reset', () => {
+		this.sidepaneComponent.$on('timer-reset', () => {
 			this.findSelectedTask()?.reset();
 		});
-		this.timerComponent.$on('timer-skip', () => {
+		this.sidepaneComponent.$on('timer-skip', () => {
 			this.findSelectedTask()?.deactivate();
 		});
-		this.timerComponent.$on('timer-run-out', ({ detail: { sessionMode } }) => {
+		this.sidepaneComponent.$on('timer-run-out', ({ detail: { sessionMode } }) => {
 			const message = sessionMode === 'work' ? 'Work session ended' : 'Break session ended';
 				if (window.Notification && Notification.permission === 'granted') {
 					new Notification(message);
@@ -125,23 +122,19 @@ export class SidePaneView extends ItemView {
 					new Notice(message);
 				}
 		});
+		this.sidepaneComponent.$on('ongoing-task-clear', ({ detail: { taskBody } }) => {
+			if (this.selectedTaskBody === taskBody) {
+				this.clearSelectedTask();
+			}
+		});
 
-		this.createTimerUI();
 		this.updateChecklist();
 	}
 
 	async onClose() {
-		this.timerComponent?.$destroy();
+		this.sidepaneComponent?.$destroy();
 		this.unsubscribeTimerStatus?.();
 		this.unsubscribeSessionMode?.();
-	}
-
-	private createTimerUI() {
-		this.selectedTaskLabel = this.selectedTaskContainer.createEl('div', { text: 'No task selected', cls: 'selected-task-label' });
-		this.clearTaskButton = this.selectedTaskContainer.createEl('a', { cls: 'clickable-icon', title: 'Cancel' });
-		setIcon(this.clearTaskButton, 'x-circle');
-		this.clearTaskButton.onclick = () => this.clearSelectedTask();
-		this.clearTaskButton.hide();
 	}
 
 	async updateChecklist() {
@@ -184,10 +177,7 @@ export class SidePaneView extends ItemView {
 								self.task = newTask;
 								self.line = newLine;
 								this.selectedTaskBody = newTask;
-								if (this.selectedTaskLabel) {
-									this.selectedTaskLabel.empty();
-									await MarkdownRenderer.render(this.plugin.app, newTask, this.selectedTaskLabel, filePath, this);
-								}
+								ongoingTask.set({ body: newTask, filePath, line: newLine });
 								const updatedContent = content.replace(line, newLine);
 								await this.app.vault.modify(file, updatedContent);
 							}
@@ -287,12 +277,7 @@ export class SidePaneView extends ItemView {
 		await this.findSelectedTask()?.deactivate();
 
 		this.selectedTaskBody = item.task;
-		if (this.selectedTaskLabel) {
-			this.selectedTaskLabel.empty();
-			await MarkdownRenderer.render(this.plugin.app, item.task, this.selectedTaskLabel, item.path, this);
-		}
-		this.clearTaskButton?.show();
-		console.log('selectTask', this.timerStatus, this.sessionMode);
+		ongoingTask.set({ body: item.task, filePath: item.path, line: item.line });
 		if (this.timerStatus === 'running' && this.sessionMode === 'work') {
 			this.findSelectedTask()?.activate();
 		}
@@ -301,8 +286,7 @@ export class SidePaneView extends ItemView {
 	private async clearSelectedTask() {
 		await this.findSelectedTask()?.deactivate();
 		this.selectedTaskBody = null;
-		if (this.selectedTaskLabel) this.selectedTaskLabel.textContent = 'No task selected';
-		this.clearTaskButton?.hide();
+		ongoingTask.set(null);
 	}
 
 	private findSelectedTask() {

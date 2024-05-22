@@ -91,24 +91,6 @@ If your plugin does not need CSS, delete this file.
 	background-color: transparent;
 }
 
-.selected-task-container {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 10px;
-	border: 1px solid var(--divider-color);
-	border-radius: 8px;
-}
-
-.selected-task-label {
-    font-size: 1rem;
-	text-align: center;
-	
-	text-overflow: ellipsis;
-    overflow: hidden;
-    white-space: nowrap;
-}
-
 .clear-task-button {
     cursor: pointer;
     background: none;

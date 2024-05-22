@@ -8,46 +8,6 @@ import type { File, Task } from '../../types';
 
 export const SIDEPANE_VIEW_TYPE = 'sidepane-view';
 
-class TaskDeprecated {
-	task: string;
-	path: string;
-	line: string;
-	private _elapsedSeconds: number = 0;
-	private _timerInterval: number | null = null;
-	private  _onDeactivate: (self: TaskDeprecated, elapsedSeconds: number) => Promise<void>;
-
-	constructor(task: string, path: string, line: string, onDeactivate: (self: TaskDeprecated, elapsedSeconds: number) => Promise<void>) {
-		this.task = task;
-		this.path = path;
-		this.line = line;
-		this._onDeactivate = onDeactivate;
-	}
-
-	activate() {
-		if (this._timerInterval) return;
-		this._timerInterval = window.setInterval(() => this.updateElapsedTime(1), 1000);
-	}
-
-	async deactivate() {
-		if (this._timerInterval) window.clearInterval(this._timerInterval);
-		await this._onDeactivate(this, this._elapsedSeconds);
-		this._elapsedSeconds = 0;
-	}
-
-	pause() {
-		if (this._timerInterval) window.clearInterval(this._timerInterval);
-	}
-
-	reset() {
-		this._elapsedSeconds = 0;
-		if (this._timerInterval) window.clearInterval(this._timerInterval);
-	}
-
-	private updateElapsedTime(seconds: number) {
-		this._elapsedSeconds += seconds;
-	}
-}
-
 export class SidePaneView extends ItemView {
 	private sidepaneContainer: HTMLElement;
 	private sidepaneComponent: SidePaneComponent | undefined;

@@ -2,8 +2,8 @@
 	import { setIcon } from "obsidian";
 	import { beforeUpdate, createEventDispatcher, onDestroy } from "svelte";
 
-	import type ChecklistPlugin from "./main";
-	import store from "./store";
+	import type ChecklistPlugin from "../../../main";
+	import store from "../../../store";
 
 	export let workMinutes = 25;
 	export let breakMinutes = 5;

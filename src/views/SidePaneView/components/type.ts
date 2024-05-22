@@ -19,6 +19,7 @@ export type TimerEvents = {
 };
 
 export type OngoingTaskProps = {
+    task: Task | null;
     parentObsidianComponent: Component;
 };
 
@@ -41,5 +42,5 @@ export type ChecklistItemProps = {
 
 export type ChecklistItemEvents = {
     'checklist-item-checkbox-click': CustomEvent<{ task: Task }>;
-    'checklist-item-focus-switch': CustomEvent<{ prevTask: Task, newTask: Task }>;
+    'checklist-item-focus-switch': CustomEvent<{ task: Task }>;
 };

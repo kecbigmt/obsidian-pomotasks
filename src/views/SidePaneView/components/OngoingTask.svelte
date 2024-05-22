@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { Component, MarkdownRenderer, setIcon } from "obsidian";
 	import { beforeUpdate, createEventDispatcher } from "svelte";
-	import { plugin, ongoingTask } from "../../../store";
+	import { plugin } from "../../../store";
+	import type { Task } from "../../../types";
 
     export let parentObsidianComponent: Component;
+    export let task: Task | null = null;
 
 	let labelSlotEl: HTMLElement | undefined;
 	let clearIconEl: HTMLButtonElement | undefined;
@@ -11,7 +13,7 @@
     $: {
         if (labelSlotEl) {
             labelSlotEl.empty();
-            if ($ongoingTask) MarkdownRenderer.render($plugin.app, $ongoingTask.body, labelSlotEl, $ongoingTask.filePath, parentObsidianComponent);
+            if (task) MarkdownRenderer.render($plugin.app, task.body, labelSlotEl, task.filePath, parentObsidianComponent);
         }
     }
 
@@ -24,20 +26,19 @@
 
 <div class="ongoing-task-container">
 	<div class="ongoing-task-label">
-        {#if $ongoingTask}
+        {#if task}
             <span bind:this={labelSlotEl}></span>
         {:else}
             <span>No task selected</span>
         {/if}
     </div>
-    {#if $ongoingTask}
+    {#if task}
     	<button
             class="clickable-icon"
             bind:this={clearIconEl} 
-            aria-label="Cancel"
+            aria-label="Clear"
             on:click={() => {
-                dispatch("ongoing-task-clear", { task: $ongoingTask });
-                ongoingTask.set(null);
+                dispatch("ongoing-task-clear", { task });
             }}
         ></button>
     {/if}

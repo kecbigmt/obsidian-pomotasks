@@ -4,12 +4,13 @@
 	import OngoingTask from "./components/OngoingTask.svelte";
 	import Timer from "./components/Timer.svelte";
 	import Checklist from "./components/Checklist.svelte";
-	import { ongoingTask } from "../../store";
+	import type { Task } from "../../types";
 
 	export let workMinutes: number;
 	export let breakMinutes: number;
 	export let parentObsidianComponent: Component;
 
+	let ongoingTask: Task | null = null;
 	let ongoingTaskStartTimestamp: number | null = null;
 	let ongoingTaskDurationBatch: number[] = [];
 
@@ -42,11 +43,11 @@
 					...ongoingTaskDurationBatch,
 					Date.now() - ongoingTaskStartTimestamp,
 				].reduce((acc, cur) => acc + cur, 0);
-				dispatch("focus-end", { task: $ongoingTask, duration });
+				dispatch("focus-end", { task: ongoingTask, duration });
 			}
 			ongoingTaskStartTimestamp = null;
 			ongoingTaskDurationBatch = [];
-			ongoingTask.set(null);
+			ongoingTask = null;
 		}}
 		on:timer-run-out
 		on:timer-start={() => {
@@ -55,6 +56,7 @@
 		}}
 	/>
 	<OngoingTask
+		task={ongoingTask}
 		{parentObsidianComponent}
 		on:ongoing-task-clear={({ detail: { task } }) => {
 			if (ongoingTaskStartTimestamp) {
@@ -66,21 +68,35 @@
 			}
 			ongoingTaskStartTimestamp = null;
 			ongoingTaskDurationBatch = [];
+			ongoingTask = null;
 		}}
 	/>
     <Checklist
         {parentObsidianComponent}
-		on:checklist-item-checkbox-click
-        on:checklist-item-focus-switch={({ detail: { prevTask } }) => {
+		on:checklist-item-checkbox-click={({ detail: { task } }) => {
 			if (ongoingTaskStartTimestamp) {
 				const duration = [
 					...ongoingTaskDurationBatch,
 					Date.now() - ongoingTaskStartTimestamp,
 				].reduce((acc, cur) => acc + cur, 0);
-				dispatch("focus-end", { task: prevTask, duration });
+				dispatch("focus-end", { task: ongoingTask, duration });
 			}
 			ongoingTaskStartTimestamp = null;
 			ongoingTaskDurationBatch = [];
+			ongoingTask = null;
+			dispatch("checklist-item-checkbox-click", { task });
+		}}
+        on:checklist-item-focus-switch={({ detail: { task } }) => {
+			if (ongoingTaskStartTimestamp) {
+				const duration = [
+					...ongoingTaskDurationBatch,
+					Date.now() - ongoingTaskStartTimestamp,
+				].reduce((acc, cur) => acc + cur, 0);
+				dispatch("focus-end", { task: ongoingTask, duration });
+			}
+			ongoingTaskStartTimestamp = null;
+			ongoingTaskDurationBatch = [];
+			ongoingTask = task;
         }}
     />
 </div>

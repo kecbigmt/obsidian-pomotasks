@@ -2,7 +2,7 @@
 	import { beforeUpdate, createEventDispatcher, onMount } from "svelte";
 	import { Component, MarkdownRenderer, setIcon } from "obsidian";
 	import type { Task } from "../../../types";
-	import { ongoingTask, plugin } from "../../../store";
+	import { plugin } from "../../../store";
 
 	export let task: Task;
 	export let parentObsidianComponent: Component;
@@ -33,7 +33,6 @@
 		<input
 			type="checkbox"
 			on:click={() => {
-                ongoingTask.set(null);
 				dispatch("checklist-item-checkbox-click", { task });
 			}}
 		/>
@@ -44,8 +43,7 @@
 		aria-label="Focus on"
         bind:this={focusButtonEl}
 		on:click={() => {
-            dispatch("checklist-item-focus-switch", { prevTask: $ongoingTask, newTask: task });
-            ongoingTask.set(task);
+            dispatch("checklist-item-focus-switch", { task });
 		}}
 	></button>
 </div>

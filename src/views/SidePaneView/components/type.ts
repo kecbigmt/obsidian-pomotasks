@@ -1,5 +1,6 @@
 import type { Component } from "obsidian";
 import type { SessionMode } from "types";
+import type { File, Task } from "../../../types";
 
 export type TimerProps = {
     workMinutes: number;
@@ -22,5 +23,23 @@ export type OngoingTaskProps = {
 };
 
 export type OngoingTaskEvents = {
-    'ongoing-task-clear': CustomEvent<{ taskBody: string }>;
+    'ongoing-task-clear': CustomEvent<{ task: Task }>;
+};
+
+export type ChecklistProps = {
+    parentObsidianComponent: Component;
+};
+
+export type ChecklistEvents = {
+    'file-open-click': CustomEvent<{ file: File }>;
+} & ChecklistItemEvents;
+
+export type ChecklistItemProps = {
+    task: Task;
+    parentObsidianComponent: Component;
+};
+
+export type ChecklistItemEvents = {
+    'checklist-item-checkbox-click': CustomEvent<{ task: Task }>;
+    'checklist-item-focus-switch': CustomEvent<{ prevTask: Task, newTask: Task }>;
 };

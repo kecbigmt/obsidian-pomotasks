@@ -36,7 +36,7 @@
             bind:this={clearIconEl} 
             aria-label="Cancel"
             on:click={() => {
-                dispatch("ongoing-task-clear", { taskBody: $ongoingTask.body });
+                dispatch("ongoing-task-clear", { task: $ongoingTask });
                 ongoingTask.set(null);
             }}
         ></button>

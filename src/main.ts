@@ -1,6 +1,6 @@
 import { App, Plugin, PluginSettingTab, Setting, TFolder } from 'obsidian';
 
-import { SIDEPANE_VIEW_TYPE, SidePaneView } from 'views/SidePaneView';
+import { SIDEPANE_VIEW_TYPE, SidePaneView } from './views/SidePaneView';
 
 interface ChecklistPluginSettings {
 	autoUpdate: boolean;

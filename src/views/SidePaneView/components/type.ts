@@ -1,6 +1,5 @@
 import type { Component } from "obsidian";
-import type { SessionMode } from "types";
-import type { File, Task } from "../../../types";
+import type { SessionMode, File, Task } from "../../../types";
 
 export type TimerProps = {
     workMinutes: number;

@@ -4,18 +4,17 @@ import autoPreprocess from "svelte-preprocess";
 import path from "path";
 import builtins from "builtin-modules";
 
-const prod = process.argv[2] === "production";
-
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
 	plugins: [
 		svelte({
 			preprocess: autoPreprocess(),
 		}),
 	],
 	build: {
-		sourcemap: prod ? false : "inline",
-		minify: prod,
+		target: "es2018",
+		sourcemap: mode === 'production' ? false : "inline",
+		minify: mode === 'production',
 		commonjsOptions: {
 			ignoreTryCatch: false,
 		},
@@ -44,8 +43,9 @@ export default defineConfig({
 				"@lezer/lr",
 				...builtins,
 			],
+			treeshake: true,
 		},
     emptyOutDir: false,
     outDir: '.',
 	},
-});
+}));

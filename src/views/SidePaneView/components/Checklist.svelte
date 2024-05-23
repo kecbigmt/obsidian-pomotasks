@@ -48,3 +48,36 @@
 		</div>
 	{/each}
 </div>
+
+<style>
+	.checklist-container {
+		padding: 10px;
+	}
+
+	.file-section-header {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		border-bottom: 1px solid #ccc;
+	}
+
+	.file-section-title {
+		font-weight: bold;
+		font-size: 1.25rem;
+		line-height: 1.5rem;
+		flex-grow: 1;
+	}
+
+	.file-section {
+		margin-bottom: 32px;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.checklist-list {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+</style>

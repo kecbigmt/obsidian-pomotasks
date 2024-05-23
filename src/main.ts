@@ -1,4 +1,5 @@
 import { App, Plugin, PluginSettingTab, Setting, TFolder } from 'obsidian';
+import './reset.css';
 
 import { SIDEPANE_VIEW_TYPE, SidePaneView } from './views/SidePaneView';
 

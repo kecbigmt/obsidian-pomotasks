@@ -47,3 +47,23 @@
 		}}
 	></button>
 </div>
+
+<style>
+	.checklist-item {
+		display: flex;
+		align-items: center;
+		gap: 2px;
+		justify-content: space-between;
+	}
+
+	.checklist-item-label {
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		gap: 2px;
+	}
+
+	.checklist-item-label:hover {
+		text-decoration: underline;
+	}
+</style>

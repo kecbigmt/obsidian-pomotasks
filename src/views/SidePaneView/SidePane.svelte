@@ -94,7 +94,7 @@
 				].reduce((acc, cur) => acc + cur, 0);
 				dispatch("focus-end", { task: ongoingTask, duration });
 			}
-			ongoingTaskStartTimestamp = null;
+			ongoingTaskStartTimestamp = Date.now();
 			ongoingTaskDurationBatch = [];
 			ongoingTask = task;
         }}

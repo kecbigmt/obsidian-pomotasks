@@ -15,88 +15,91 @@
 	let ongoingTaskDurationBatch: number[] = [];
 
 	const dispatch = createEventDispatcher();
+
+	const setOngoingTask = (task: Task) => {
+		ongoingTask = task;
+	};
+
+	const clearOngoingTask = () => {
+		ongoingTask = null;
+	};
+
+	const appendDurationFrom = (startTimestamp: number) => {
+		return [...ongoingTaskDurationBatch, Date.now() - startTimestamp];
+	};
+
+	const startTimer = () => {
+		ongoingTaskStartTimestamp = Date.now();
+		ongoingTaskDurationBatch = [];
+	};
+
+	const pauseTimer = () => {
+		if (ongoingTaskStartTimestamp) {
+			ongoingTaskDurationBatch = appendDurationFrom(ongoingTaskStartTimestamp);
+			ongoingTaskStartTimestamp = null;
+		}
+	};
+
+	const resetTimer = () => {
+		ongoingTaskStartTimestamp = null;
+		ongoingTaskDurationBatch = [];
+	};
+
+	const resumeTimer = () => {
+		ongoingTaskStartTimestamp = Date.now();
+	};
+
+	const sum = (arr: number[]) => arr.reduce((acc, cur) => acc + cur, 0);
 </script>
 
 <div class="sidepane">
 	<Timer
 		{workMinutes}
 		{breakMinutes}
-		on:timer-pause={() => {
-			if (ongoingTaskStartTimestamp) {
-				ongoingTaskDurationBatch = [
-					...ongoingTaskDurationBatch,
-					Date.now() - ongoingTaskStartTimestamp,
-				];
-				ongoingTaskStartTimestamp = null;
-			}
-		}}
-		on:timer-reset={() => {
-			ongoingTaskStartTimestamp = null;
-			ongoingTaskDurationBatch = [];
-		}}
-		on:timer-resume={() => {
-			ongoingTaskStartTimestamp = Date.now();
-		}}
+		on:timer-start={startTimer}
+		on:timer-pause={pauseTimer}
+		on:timer-resume={resumeTimer}
+		on:timer-reset={resetTimer}
 		on:timer-skip={() => {
 			if (ongoingTaskStartTimestamp) {
-				const duration = [
-					...ongoingTaskDurationBatch,
-					Date.now() - ongoingTaskStartTimestamp,
-				].reduce((acc, cur) => acc + cur, 0);
+				const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));
 				dispatch("focus-end", { task: ongoingTask, duration });
 			}
-			ongoingTaskStartTimestamp = null;
-			ongoingTaskDurationBatch = [];
-			ongoingTask = null;
+			resetTimer();
+			clearOngoingTask();
 		}}
 		on:timer-run-out
-		on:timer-start={() => {
-			ongoingTaskStartTimestamp = Date.now();
-			ongoingTaskDurationBatch = [];
-		}}
 	/>
 	<OngoingTask
 		task={ongoingTask}
 		{parentObsidianComponent}
 		on:ongoing-task-clear={({ detail: { task } }) => {
 			if (ongoingTaskStartTimestamp) {
-				const duration = [
-					...ongoingTaskDurationBatch,
-					Date.now() - ongoingTaskStartTimestamp,
-				].reduce((acc, cur) => acc + cur, 0);
+				const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));
 				dispatch("focus-end", { task, duration });
 			}
-			ongoingTaskStartTimestamp = null;
-			ongoingTaskDurationBatch = [];
-			ongoingTask = null;
+			resetTimer();
+			clearOngoingTask();
 		}}
 	/>
     <Checklist
         {parentObsidianComponent}
 		on:checklist-item-checkbox-click={({ detail: { task } }) => {
 			if (ongoingTaskStartTimestamp) {
-				const duration = [
-					...ongoingTaskDurationBatch,
-					Date.now() - ongoingTaskStartTimestamp,
-				].reduce((acc, cur) => acc + cur, 0);
+				const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));
 				dispatch("focus-end", { task: ongoingTask, duration });
 			}
-			ongoingTaskStartTimestamp = null;
-			ongoingTaskDurationBatch = [];
-			ongoingTask = null;
+			resetTimer();
+			clearOngoingTask();
 			dispatch("checklist-item-checkbox-click", { task });
 		}}
         on:checklist-item-focus-switch={({ detail: { task } }) => {
 			if (ongoingTaskStartTimestamp) {
-				const duration = [
-					...ongoingTaskDurationBatch,
-					Date.now() - ongoingTaskStartTimestamp,
-				].reduce((acc, cur) => acc + cur, 0);
+				const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));
 				dispatch("focus-end", { task: ongoingTask, duration });
 			}
-			ongoingTaskStartTimestamp = Date.now();
-			ongoingTaskDurationBatch = [];
-			ongoingTask = task;
+			startTimer();
+			setOngoingTask(task);
         }}
     />
 </div>

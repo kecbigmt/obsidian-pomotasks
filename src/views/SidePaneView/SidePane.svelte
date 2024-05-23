@@ -94,7 +94,7 @@
 			dispatch("checklist-item-checkbox-click", { task });
 		}}
         on:checklist-item-focus-switch={({ detail: { task } }) => {
-			if (ongoingTaskStartTimestamp) {
+			if (ongoingTaskStartTimestamp && ongoingTask) {
 				const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));
 				dispatch("focus-end", { task: ongoingTask, duration });
 			}

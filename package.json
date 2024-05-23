@@ -4,8 +4,10 @@
 	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
 	"main": "main.js",
 	"scripts": {
-		"dev": "node esbuild.config.mjs",
-		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"dev": "vite build --watch",
+		"build": "vite build",
+		"preview": "vite preview",
+		"check": "svelte-check --tsconfig ./tsconfig.json",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"test": "vitest --run",
 		"watch": "vitest"
@@ -14,6 +16,7 @@
 	"author": "",
 	"license": "MIT",
 	"devDependencies": {
+		"@sveltejs/vite-plugin-svelte": "^3.1.0",
 		"@tsconfig/svelte": "^5.0.4",
 		"@types/node": "^20.12.12",
 		"@typescript-eslint/eslint-plugin": "5.29.0",
@@ -23,9 +26,11 @@
 		"esbuild-svelte": "^0.8.1",
 		"obsidian": "latest",
 		"svelte": "^4.2.17",
+		"svelte-check": "^3.7.1",
 		"svelte-preprocess": "^5.1.4",
 		"tslib": "2.4.0",
 		"typescript": "^5.4.5",
+		"vite": "^5.2.11",
 		"vitest": "^1.6.0"
 	}
 }

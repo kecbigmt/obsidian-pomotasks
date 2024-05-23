@@ -3,6 +3,7 @@
 	import { Component, MarkdownRenderer, setIcon } from "obsidian";
 	import type { Task } from "../../../types";
 	import { plugin } from "../../../store";
+	import type { ChecklistItemEvents } from "./type";
 
 	export let task: Task;
 	export let parentObsidianComponent: Component;
@@ -10,7 +11,7 @@
 	let taskBodyEl: HTMLDivElement | undefined;
     let focusButtonEl: HTMLButtonElement | undefined;
 
-	const dispatch = createEventDispatcher();
+	const dispatch = createEventDispatcher<ChecklistItemEvents>();
 
 	onMount(() => {
 		if (taskBodyEl)

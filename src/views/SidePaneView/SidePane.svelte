@@ -5,6 +5,7 @@
 	import Timer from "./components/Timer.svelte";
 	import Checklist from "./components/Checklist.svelte";
 	import type { Task } from "../../types";
+	import type { SidePaneEvents } from "./types";
 
 	export let workMinutes: number;
 	export let breakMinutes: number;
@@ -14,7 +15,7 @@
 	let ongoingTaskStartTimestamp: number | null = null;
 	let ongoingTaskDurationBatch: number[] = [];
 
-	const dispatch = createEventDispatcher();
+	const dispatch = createEventDispatcher<SidePaneEvents>();
 
 	const setOngoingTask = (task: Task) => {
 		ongoingTask = task;
@@ -61,7 +62,7 @@
 		on:timer-resume={resumeTimer}
 		on:timer-reset={resetTimer}
 		on:timer-skip={() => {
-			if (ongoingTaskStartTimestamp) {
+			if (ongoingTaskStartTimestamp && ongoingTask) {
 				const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));
 				dispatch("focus-end", { task: ongoingTask, duration });
 			}
@@ -85,7 +86,7 @@
     <Checklist
         {parentObsidianComponent}
 		on:checklist-item-checkbox-click={({ detail: { task } }) => {
-			if (ongoingTaskStartTimestamp) {
+			if (ongoingTaskStartTimestamp && ongoingTask) {
 				const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));
 				dispatch("focus-end", { task: ongoingTask, duration });
 			}

@@ -3,12 +3,13 @@
 	import { Component, setIcon } from "obsidian";
 	import { files, sessionSetting, emojiSetting } from "../../../store";
 	import ChecklistItem from "./ChecklistItem.svelte";
+	import type { ChecklistEvents } from "./type";
 
 	export let parentObsidianComponent: Component;
 
 	let fileLinkIcon: HTMLButtonElement | undefined;
 
-	const dispatch = createEventDispatcher();
+	const dispatch = createEventDispatcher<ChecklistEvents>();
 
 	$: sessionMinutes =
 		$sessionSetting.workMinutes + $sessionSetting.breakMinutes;

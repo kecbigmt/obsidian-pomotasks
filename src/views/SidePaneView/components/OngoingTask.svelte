@@ -3,6 +3,7 @@
 	import { beforeUpdate, createEventDispatcher } from "svelte";
 	import { plugin } from "../../../store";
 	import type { Task } from "../../../types";
+	import type { OngoingTaskEvents } from "./type";
 
     export let parentObsidianComponent: Component;
     export let task: Task | null = null;
@@ -17,7 +18,7 @@
         }
     }
 
-    const dispatch = createEventDispatcher();
+    const dispatch = createEventDispatcher<OngoingTaskEvents>();
 
 	beforeUpdate(() => {
 		if (clearIconEl) setIcon(clearIconEl, "x-circle");

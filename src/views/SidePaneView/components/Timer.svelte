@@ -4,11 +4,13 @@
 
 	import type ChecklistPlugin from "../../../main";
 	import store from "../../../store";
+	import type { SessionMode } from "../../../types";
+	import type { TimerEvents } from "./type";
 
 	export let workMinutes = 25;
 	export let breakMinutes = 5;
 
-	const dispatch = createEventDispatcher();
+	const dispatch = createEventDispatcher<TimerEvents>();
 
 	let resetButtonEl: HTMLButtonElement | undefined;
 	let startButtonEl: HTMLButtonElement | undefined;
@@ -20,7 +22,7 @@
 	let timerInterval: number | undefined;
 	let lastTick: number;
 
-	let sessionMode: "work" | "break" = "work";
+	let sessionMode: SessionMode = "work";
 	$: {
 		store.sessionMode.set(sessionMode);
 	}

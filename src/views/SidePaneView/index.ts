@@ -77,8 +77,11 @@ export class SidePaneView extends ItemView {
 				const newTaskBody = updateTaskBodyAfterElapsedMinutes(setting, task.body, duration / 60000);
 				if (newTaskBody === task.body) return;
 				
-				const newLine = '- [ ] ' + newTaskBody;
-				const updatedContent = content.replace(task.line, newLine);
+				const startIndex = task.line.indexOf('- [ ] ');
+				const endIndex = startIndex + '- [ ] '.length;
+				const taskBody = task.line.substring(endIndex);
+
+				const updatedContent = content.replace(taskBody, newTaskBody);
 				await this.app.vault.modify(file, updatedContent);
 			}
 		});

@@ -4,6 +4,7 @@
 	import OngoingTask from "./components/OngoingTask.svelte";
 	import Timer from "./components/Timer.svelte";
 	import Checklist from "./components/Checklist.svelte";
+	import { files } from "../../store";
 	import type { Task } from "../../types";
 	import type { SidePaneEvents } from "./types";
 
@@ -83,26 +84,31 @@
 			clearOngoingTask();
 		}}
 	/>
-    <Checklist
-        {parentObsidianComponent}
-		on:checklist-item-checkbox-click={({ detail: { task } }) => {
-			if (ongoingTaskStartTimestamp && ongoingTask) {
-				const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));
-				dispatch("focus-end", { task: ongoingTask, duration });
-			}
-			resetTimer();
-			clearOngoingTask();
-			dispatch("checklist-item-checkbox-click", { task });
-		}}
-        on:checklist-item-focus-switch={({ detail: { task } }) => {
-			if (ongoingTaskStartTimestamp && ongoingTask) {
-				const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));
-				dispatch("focus-end", { task: ongoingTask, duration });
-			}
-			startTimer();
-			setOngoingTask(task);
-        }}
-    />
+	<div class="checklist-container">
+		{#each $files as file (file.name)}
+			<Checklist
+				{file}
+				{parentObsidianComponent}
+				on:checklist-item-checkbox-click={({ detail: { task } }) => {
+					if (ongoingTaskStartTimestamp && ongoingTask) {
+						const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));
+						dispatch("focus-end", { task: ongoingTask, duration });
+					}
+					resetTimer();
+					clearOngoingTask();
+					dispatch("checklist-item-checkbox-click", { task });
+				}}
+				on:checklist-item-focus-switch={({ detail: { task } }) => {
+					if (ongoingTaskStartTimestamp && ongoingTask) {
+						const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));
+						dispatch("focus-end", { task: ongoingTask, duration });
+					}
+					startTimer();
+					setOngoingTask(task);
+				}}
+			/>
+		{/each}
+	</div>
 </div>
 
 <style>
@@ -110,5 +116,9 @@
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
+	}
+	
+	.checklist-container {
+		padding: 10px;
 	}
 </style>

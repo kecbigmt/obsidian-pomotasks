@@ -89,6 +89,7 @@
 			<Checklist
 				{file}
 				{parentObsidianComponent}
+				on:file-open-click
 				on:checklist-item-checkbox-click={({ detail: { task } }) => {
 					if (ongoingTaskStartTimestamp && ongoingTask) {
 						const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));

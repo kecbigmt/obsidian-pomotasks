@@ -11,6 +11,11 @@ export default defineConfig(({ mode }) => ({
 			preprocess: autoPreprocess(),
 		}),
 	],
+	resolve: {
+		alias: {
+			'@': path.resolve(__dirname, 'src'),
+		},
+	},
 	build: {
 		target: "es2018",
 		sourcemap: mode === 'production' ? false : "inline",

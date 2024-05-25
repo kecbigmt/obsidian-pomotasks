@@ -1,6 +1,7 @@
 import { writable } from "svelte/store";
 import type ChecklistPlugin from "./main";
-import type { Task, File, SessionSetting, EmojiSetting } from "./types";
+import type { SessionSetting, EmojiSetting } from "./types";
+import type { File } from "@/models";
 
 export const plugin = writable<ChecklistPlugin>();
 export const sessionSetting = writable<SessionSetting>({ workMinutes: 25, breakMinutes: 5 });

@@ -1,6 +1,12 @@
 export type SessionMode = 'work' | 'break';
 
-export type Task = { body: string; filePath: string; line: string; };
+export type Task = { 
+    name: string; 
+    remainingTomatoCount: number;
+    completedTomatoCount: number;
+    filePath: string;
+    rawLine: string;
+};
 
 export type File = {
     name: string;

@@ -5,7 +5,7 @@
 	import Timer from "./components/Timer.svelte";
 	import Checklist from "./components/Checklist.svelte";
 	import { files } from "../../store";
-	import type { Task } from "../../types";
+	import type { Task } from "@/models";
 	import type { SidePaneEvents } from "./types";
 
 	export let workMinutes: number;

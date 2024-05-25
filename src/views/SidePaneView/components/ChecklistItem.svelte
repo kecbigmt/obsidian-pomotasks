@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { beforeUpdate, createEventDispatcher, onMount } from "svelte";
+	import { afterUpdate, beforeUpdate, createEventDispatcher, onMount } from "svelte";
 	import { Component, MarkdownRenderer, setIcon } from "obsidian";
-	import type { Task } from "../../../types";
-	import { plugin } from "../../../store";
+	import { formatTaskToBody, type Task } from "@/models";
+	import { emojiSetting, plugin } from "../../../store";
 	import type { ChecklistItemEvents } from "./type";
 
 	export let task: Task;
@@ -11,22 +11,33 @@
 	let taskBodyEl: HTMLDivElement | undefined;
     let focusButtonEl: HTMLButtonElement | undefined;
 
+	$: taskBody = formatTaskToBody($emojiSetting, task);
+	$: renderTaskBody = (taskBodyEl: HTMLElement) => {
+		MarkdownRenderer.render(
+			$plugin.app,
+			taskBody,
+			taskBodyEl,
+			task.filePath,
+			parentObsidianComponent,
+		);
+	}
+	
 	const dispatch = createEventDispatcher<ChecklistItemEvents>();
 
 	onMount(() => {
-		if (taskBodyEl)
-			MarkdownRenderer.render(
-				$plugin.app,
-				task.body,
-				taskBodyEl,
-				task.filePath,
-				parentObsidianComponent,
-			);
-	});
+		if (taskBodyEl) renderTaskBody(taskBodyEl);
+	})
 
     beforeUpdate(() => {
         if (focusButtonEl) setIcon(focusButtonEl, "circle-dot");
     });
+
+	afterUpdate(() => {
+		if (taskBodyEl) {
+			taskBodyEl.empty();
+			renderTaskBody(taskBodyEl);
+		}
+	})
 </script>
 
 <div class="checklist-item">
@@ -34,7 +45,7 @@
 		<input
 			type="checkbox"
 			on:click={() => {
-				dispatch("checklist-item-checkbox-click", { task });
+				dispatch('checklist-item-checkbox-click', { task });
 			}}
 		/>
 		<div bind:this={taskBodyEl}></div>
@@ -42,9 +53,9 @@
 	<button
 		class="clickable-icon"
 		aria-label="Focus on"
-        bind:this={focusButtonEl}
+		bind:this={focusButtonEl}
 		on:click={() => {
-            dispatch("checklist-item-focus-switch", { task });
+			dispatch('checklist-item-focus-switch', { task });
 		}}
 	></button>
 </div>

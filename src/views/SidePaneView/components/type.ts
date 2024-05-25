@@ -1,4 +1,5 @@
-import type { SessionMode, File, Task } from "../../../types";
+import type { SessionMode } from "@/types";
+import type { Task, File } from "@/models";
 
 export type TimerCommonParams = { sessionMode: SessionMode, displayRemainingTime: string  };
 

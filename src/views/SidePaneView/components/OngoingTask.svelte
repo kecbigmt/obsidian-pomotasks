@@ -2,7 +2,7 @@
 	import { Component, MarkdownRenderer, setIcon } from "obsidian";
 	import { beforeUpdate, createEventDispatcher } from "svelte";
 	import { plugin } from "../../../store";
-	import type { Task } from "../../../types";
+	import type { Task } from "@/models";
 	import type { OngoingTaskEvents } from "./type";
 
     export let parentObsidianComponent: Component;
@@ -14,7 +14,7 @@
     $: {
         if (labelSlotEl) {
             labelSlotEl.empty();
-            if (task) MarkdownRenderer.render($plugin.app, task.body, labelSlotEl, task.filePath, parentObsidianComponent);
+            if (task) MarkdownRenderer.render($plugin.app, task.name, labelSlotEl, task.filePath, parentObsidianComponent);
         }
     }
 

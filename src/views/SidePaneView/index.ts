@@ -1,10 +1,9 @@
 import { TFile, ItemView, WorkspaceLeaf, Notice } from 'obsidian';
 
 import type ChecklistPlugin from '../../main';
-import { updateTaskBodyAfterElapsedMinutes, getRemainingMinutesFromTaskBody } from '../../lib/tomatoCalculation';
 import SidePaneComponent from './SidePane.svelte';
 import store, { files } from '../../store';
-import type { File, Task } from '../../types';
+import { type Task, type File, constructTaskFromLine, substractTomatoCountFromTask, formatTaskToLine } from '@/models';
 
 export const SIDEPANE_VIEW_TYPE = 'sidepane-view';
 
@@ -69,19 +68,14 @@ export class SidePaneView extends ItemView {
 			if (file) {
 				const content = await this.app.vault.read(file);
 				const setting = {
-					fullTomatoEmoji: this.plugin.settings.tomatoEmoji,
-					halfTomatoEmoji: this.plugin.settings.halfTomatoEmoji,
-					quarterTomatoEmoji: this.plugin.settings.quarterTomatoEmoji,
-					workMinutesPerTomato: this.plugin.settings.workDuration
+					fullTomato: this.plugin.settings.tomatoEmoji,
+					halfTomato: this.plugin.settings.halfTomatoEmoji,
+					quarterTomato: this.plugin.settings.quarterTomatoEmoji,
 				};
-				const newTaskBody = updateTaskBodyAfterElapsedMinutes(setting, task.body, duration / 60000);
-				if (newTaskBody === task.body) return;
-				
-				const startIndex = task.line.indexOf('- [ ] ');
-				const endIndex = startIndex + '- [ ] '.length;
-				const taskBody = task.line.substring(endIndex);
+				const newTask = substractTomatoCountFromTask(task, duration / this.plugin.settings.workDuration / 60000);
+				const newLine = formatTaskToLine(setting, newTask);
 
-				const updatedContent = content.replace(taskBody, newTaskBody);
+				const updatedContent = content.replace(newTask.rawLine, newLine);
 				await this.app.vault.modify(file, updatedContent);
 			}
 		});
@@ -96,8 +90,9 @@ export class SidePaneView extends ItemView {
 	async updateChecklist() {
 		const markdownFiles = this.plugin.app.vault.getMarkdownFiles();
 		if (!this.plugin.settings) throw new Error('Settings not loaded');
-		const { tomatoEmoji, halfTomatoEmoji, quarterTomatoEmoji, workDuration, breakDuration, folderPath } = this.plugin.settings;
+		const { tomatoEmoji, halfTomatoEmoji, quarterTomatoEmoji, folderPath } = this.plugin.settings;
 		const tmpFiles: File[] = [];
+		const emojiSetting = { fullTomato: tomatoEmoji, halfTomato: halfTomatoEmoji, quarterTomato: quarterTomatoEmoji };
 
 		for (const mdFile of markdownFiles) {
 			if (folderPath && !mdFile.path.startsWith(folderPath)) {
@@ -112,17 +107,9 @@ export class SidePaneView extends ItemView {
 
 				for (const line of lines) {
 					if (line.match(/^\s*-\s*\[\s\]/)) {
-						const taskBody = line.trim().slice(6);
-						const filePath = mdFile.path;
-						const task = { body: taskBody, filePath, line };
+						const task = constructTaskFromLine(emojiSetting, line, mdFile.path);
 						tasks.push(task);
-						const setting = {
-							fullTomatoEmoji: tomatoEmoji,
-							halfTomatoEmoji: halfTomatoEmoji,
-							quarterTomatoEmoji: quarterTomatoEmoji,
-							workMinutesPerTomato: workDuration
-						};
-						tomatoCount += getRemainingMinutesFromTaskBody(setting, line) / workDuration;
+						tomatoCount += task.remainingTomatoCount;
 					}
 				}
 
@@ -143,7 +130,7 @@ export class SidePaneView extends ItemView {
 
 			if (file) {
 				const content = await this.plugin.app.vault.read(file);
-				const updatedContent = content.replace(task.line, task.line.replace('[ ]', '[x]'));
+				const updatedContent = content.replace(task.rawLine, task.rawLine.replace('[ ]', '[x]'));
 				await this.plugin.app.vault.modify(file, updatedContent);
 				this.updateChecklist();
 			}

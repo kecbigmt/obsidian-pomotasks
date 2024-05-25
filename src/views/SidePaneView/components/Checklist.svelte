@@ -4,7 +4,7 @@
 	import { sessionSetting, emojiSetting } from "../../../store";
 	import ChecklistItem from "./ChecklistItem.svelte";
 	import type { ChecklistEvents } from "./type";
-	import type { File } from "types";
+	import type { File } from "@/models";
 
 	export let file: File;
 	export let parentObsidianComponent: Component;
@@ -37,7 +37,7 @@
 		{`Total: ${$emojiSetting.fullTomato}x${file.tomatoCount} (${Math.floor((file.tomatoCount * sessionMinutes) / 60)}h ${(file.tomatoCount * sessionMinutes) % 60}m)`}
 	</div>
 	<div class="checklist-list">
-		{#each file.tasks as task (task.body)}
+		{#each file.tasks as task (task.name)}
 			<ChecklistItem
 				{task}
 				{parentObsidianComponent}

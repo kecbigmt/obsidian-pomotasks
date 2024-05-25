@@ -91,13 +91,14 @@
 				{parentObsidianComponent}
 				on:file-open-click
 				on:checklist-item-checkbox-click={({ detail: { task } }) => {
-					if (ongoingTaskStartTimestamp && ongoingTask) {
+					if (ongoingTaskStartTimestamp && ongoingTask && task.name === ongoingTask.name ) {
 						const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));
-						dispatch("focus-end", { task: ongoingTask, duration });
+						dispatch("checklist-item-checkbox-click", { task, isFocused: true, duration });
+					} else {
+						dispatch("checklist-item-checkbox-click", { task, isFocused: false, duration: null });
 					}
 					resetTimer();
 					clearOngoingTask();
-					dispatch("checklist-item-checkbox-click", { task });
 				}}
 				on:checklist-item-focus-switch={({ detail: { task } }) => {
 					if (ongoingTaskStartTimestamp && ongoingTask) {

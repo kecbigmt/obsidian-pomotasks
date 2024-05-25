@@ -59,25 +59,16 @@ export class SidePaneView extends ItemView {
 				leaf.openFile(file);
 			}
 		});
-		this.sidepaneComponent.$on('checklist-item-checkbox-click', ({ detail: { task } }) => {
-			this.markItemAsDone(task);
-		});
-		this.sidepaneComponent.$on('focus-end', async ({ detail: { task, duration } }) => {
-			if (!this.plugin.settings) throw new Error('Settings not loaded');
-			const file = this.app.vault.getAbstractFileByPath(task.filePath) as TFile;
-			if (file) {
-				const content = await this.app.vault.read(file);
-				const setting = {
-					fullTomato: this.plugin.settings.tomatoEmoji,
-					halfTomato: this.plugin.settings.halfTomatoEmoji,
-					quarterTomato: this.plugin.settings.quarterTomatoEmoji,
-				};
-				const newTask = substractTomatoCountFromTask(task, duration / this.plugin.settings.workDuration / 60000);
-				const newLine = formatTaskToLine(setting, newTask);
-
-				const updatedContent = content.replace(newTask.rawLine, newLine);
-				await this.app.vault.modify(file, updatedContent);
+		this.sidepaneComponent.$on('checklist-item-checkbox-click', async ({ detail }) => {
+			if (detail.isFocused) {
+				const newTask = await this.updateTaskAfterDuration(detail.task, detail.duration);
+				this.markItemAsDone(newTask);
+			} else {
+				this.markItemAsDone(detail.task);
 			}
+		});
+		this.sidepaneComponent.$on('focus-end', ({ detail: { task, duration } }) => {
+			this.updateTaskAfterDuration(task, duration);
 		});
 
 		this.updateChecklist();
@@ -137,5 +128,26 @@ export class SidePaneView extends ItemView {
 		} catch (error) {
 			console.error(`Error updating file ${task.filePath}:`, error);
 		}
+	}
+
+	private async updateTaskAfterDuration(task: Task, duration: number): Promise<Task> {
+		if (!this.plugin.settings) throw new Error('Settings not loaded');
+		const file = this.app.vault.getAbstractFileByPath(task.filePath) as TFile;
+		if (file) {
+			const content = await this.app.vault.read(file);
+			const setting = {
+				fullTomato: this.plugin.settings.tomatoEmoji,
+				halfTomato: this.plugin.settings.halfTomatoEmoji,
+				quarterTomato: this.plugin.settings.quarterTomatoEmoji,
+			};
+			const newTask = substractTomatoCountFromTask(task, duration / this.plugin.settings.workDuration / 60000);
+			const newLine = formatTaskToLine(setting, newTask);
+
+			const updatedContent = content.replace(newTask.rawLine, newLine);
+			await this.app.vault.modify(file, updatedContent);
+
+			return { ...newTask, rawLine: newLine };
+		}
+		return task;
 	}
 }

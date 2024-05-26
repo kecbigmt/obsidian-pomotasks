@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-sample-plugin",
-	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"name": "obsidian-pomotasks",
+	"version": "0.1.0",
+	"description": "Pomodoro-based task tracker (Obsidian plugin)",
 	"main": "main.js",
 	"scripts": {
 		"dev": "vite build --watch",
@@ -13,8 +13,8 @@
 		"watch": "vitest"
 	},
 	"keywords": [],
-	"author": "",
-	"license": "MIT",
+	"author": "kecy",
+	"license": "GPL-3.0",
 	"devDependencies": {
 		"@sveltejs/vite-plugin-svelte": "^3.1.0",
 		"@tsconfig/svelte": "^5.0.4",

@@ -37,7 +37,6 @@ export class SidePaneView extends ItemView {
 		this.sidepaneComponent = new SidePaneComponent({
 			target: this.sidepaneContainer, // TODO: Replace by this.contentEl
 			props: {
-				...this.pluginSetting.sessionSetting,
 				parentObsidianComponent: this,
 			}
 		});

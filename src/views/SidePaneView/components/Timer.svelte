@@ -2,11 +2,8 @@
 	import { setIcon } from "obsidian";
 	import { beforeUpdate, createEventDispatcher, onDestroy } from "svelte";
 
-	import { plugin, sessionMode, timerStatus } from "@/store";
+	import { plugin, sessionMode, timerStatus, sessionSetting } from "@/store";
 	import type { TimerEvents } from "./type";
-
-	export let workMinutes = 25;
-	export let breakMinutes = 5;
 
 	const dispatch = createEventDispatcher<TimerEvents>();
 
@@ -40,7 +37,7 @@
 	}
 	
 	$: timeboxDuration =
-		($sessionMode === "work" ? workMinutes : breakMinutes) * 60000;
+		($sessionMode === "work" ? $sessionSetting.workMinutes : $sessionSetting.breakMinutes) * 60000;
 	$: remainingDuration = timeboxDuration;
 	$: minutes = Math.floor(Math.abs(remainingDuration) / 60000);
 	$: seconds = Math.floor((Math.abs(remainingDuration) % 60000) / 1000);

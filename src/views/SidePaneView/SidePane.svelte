@@ -8,8 +8,6 @@
 	import type { Task } from "@/models";
 	import type { SidePaneEvents } from "./types";
 
-	export let workMinutes: number;
-	export let breakMinutes: number;
 	export let parentObsidianComponent: Component;
 
 	let ongoingTask: Task | null = null;
@@ -56,8 +54,6 @@
 
 <div class="sidepane">
 	<Timer
-		{workMinutes}
-		{breakMinutes}
 		on:timer-start={startTimer}
 		on:timer-pause={pauseTimer}
 		on:timer-resume={resumeTimer}

@@ -2,9 +2,7 @@
 	import { setIcon } from "obsidian";
 	import { beforeUpdate, createEventDispatcher, onDestroy } from "svelte";
 
-	import type ChecklistPlugin from "../../../main";
-	import store from "../../../store";
-	import type { SessionMode } from "../../../types";
+	import { plugin, sessionMode, timerStatus } from "@/store";
 	import type { TimerEvents } from "./type";
 
 	export let workMinutes = 25;
@@ -22,11 +20,6 @@
 	let timerInterval: number | undefined;
 	let lastTick: number;
 
-	let sessionMode: SessionMode = "work";
-	$: {
-		store.sessionMode.set(sessionMode);
-	}
-
 	type TimerState =
 		| {
 				type: "running";
@@ -43,11 +36,11 @@
 		| null;
 	let timerState: TimerState = null;
 	$: {
-		store.timerStatus.set(timerState?.type ?? 'stopped');
+		timerStatus.set(timerState?.type ?? 'stopped');
 	}
 	
 	$: timeboxDuration =
-		(sessionMode === "work" ? workMinutes : breakMinutes) * 60000;
+		($sessionMode === "work" ? workMinutes : breakMinutes) * 60000;
 	$: remainingDuration = timeboxDuration;
 	$: minutes = Math.floor(Math.abs(remainingDuration) / 60000);
 	$: seconds = Math.floor((Math.abs(remainingDuration) % 60000) / 1000);
@@ -63,13 +56,8 @@
 				: timeboxDuration;
 	};
 
-	let plugin: ChecklistPlugin;
-	const unsubscribePlugin = store.plugin.subscribe((p) => {
-		plugin = p;
-	});
-
 	$: {
-		plugin.statusBarItem?.setText(`${sessionMode === 'work' ? '🏃' : '☕️'} ${displayRemainingTime}`);
+		$plugin.statusBarItem?.setText(`${$sessionMode === 'work' ? '🏃' : '☕️'} ${displayRemainingTime}`);
 	}
 
 	const clearInterval = () => {
@@ -87,13 +75,12 @@
 
 	onDestroy(() => {
 		clearInterval();
-		unsubscribePlugin();
 	});
 </script>
 
 <div class="timer">
 	<div class="display-group">
-		<div class="period-label">{sessionMode === 'work' ? "🏃 Work" : "☕️ Break"}</div>
+		<div class="period-label">{$sessionMode === 'work' ? "🏃 Work" : "☕️ Break"}</div>
 		<div class="timer-display">
 			{displayRemainingTime}
 		</div>
@@ -104,7 +91,7 @@
 			on:click={() => {
 				timerState = null;
 				clearInterval();
-				dispatch("timer-reset", { sessionMode, displayRemainingTime });
+				dispatch("timer-reset", { sessionMode: $sessionMode, displayRemainingTime });
 			}}
 			bind:this={resetButtonEl}
 		></button>
@@ -122,7 +109,7 @@
 					};
 					clearInterval();
 					dispatch("timer-pause", {
-						sessionMode,
+						sessionMode: $sessionMode,
 						displayRemainingTime,
 					});
 				}}
@@ -143,7 +130,7 @@
 								timerState.notificationTriggered,
 						};
 						dispatch("timer-resume", {
-							sessionMode,
+							sessionMode: $sessionMode,
 							displayRemainingTime,
 						});
 					} else {
@@ -154,7 +141,7 @@
 							notificationTriggered: false,
 						};
 						dispatch("timer-start", {
-							sessionMode,
+							sessionMode: $sessionMode,
 							displayRemainingTime,
 						});
 					}
@@ -173,7 +160,7 @@
 								pauseAt: null,
 								notificationTriggered: true,
 							};
-							dispatch("timer-run-out", { sessionMode, displayRemainingTime });
+							dispatch("timer-run-out", { sessionMode: $sessionMode, displayRemainingTime });
 						}
 					}, 1000);
 				}}
@@ -185,8 +172,8 @@
 			on:click={() => {
 				timerState = null;
 				clearInterval();
-				sessionMode = sessionMode === "work" ? "break" : "work";
-				dispatch("timer-skip", { sessionMode, displayRemainingTime });
+				sessionMode.update((cur) => cur === "work" ? "break" : "work");
+				dispatch("timer-skip", { sessionMode: $sessionMode, displayRemainingTime });
 			}}
 			bind:this={skipButtonEl}
 		></button>

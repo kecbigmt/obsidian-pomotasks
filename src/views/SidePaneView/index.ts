@@ -2,7 +2,7 @@ import { TFile, ItemView, WorkspaceLeaf, Notice, TAbstractFile } from 'obsidian'
 
 import type ChecklistPlugin from '../../main';
 import SidePaneComponent from './SidePane.svelte';
-import store, { files } from '../../store';
+import { plugin, files } from '@/store';
 import { type Task, type File, substractTomatoCountFromTask, formatTaskToLine, constructFileFromContent } from '@/models';
 
 export const SIDEPANE_VIEW_TYPE = 'sidepane-view';
@@ -32,7 +32,7 @@ export class SidePaneView extends ItemView {
 	}
 
 	async onOpen() {
-		store.plugin.set(this.plugin);
+		plugin.set(this.plugin);
 
 		if (!this.plugin.settings) throw new Error('Settings not loaded');
 		this.sidepaneComponent = new SidePaneComponent({

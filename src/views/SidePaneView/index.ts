@@ -34,12 +34,12 @@ export class SidePaneView extends ItemView {
 	async onOpen() {
 		plugin.set(this.plugin);
 
-		if (!this.plugin.settings) throw new Error('Settings not loaded');
+		const { workDuration, breakDuration } = this.pluginSetting;
 		this.sidepaneComponent = new SidePaneComponent({
 			target: this.sidepaneContainer, // TODO: Replace by this.contentEl
 			props: {
-				workMinutes: this.plugin.settings.workDuration,
-				breakMinutes: this.plugin.settings.breakDuration,
+				workMinutes: workDuration,
+				breakMinutes: breakDuration,
 				parentObsidianComponent: this,
 			}
 		});
@@ -124,8 +124,7 @@ export class SidePaneView extends ItemView {
 
 	async loadAllFiles() {
 		const markdownFiles = this.plugin.app.vault.getMarkdownFiles();
-		if (!this.plugin.settings) throw new Error('Settings not loaded');
-		const { folderPath } = this.plugin.settings;
+		const { folderPath } = this.pluginSetting;
 		const tmpFiles: File[] = [];
 
 		for (const mdFile of markdownFiles) {
@@ -137,14 +136,14 @@ export class SidePaneView extends ItemView {
 	}
 
 	private async loadAndConstructFile(file: TFile) {
-		if (!this.plugin.settings) throw new Error('Settings not loaded');
+		const { tomatoEmoji, halfTomatoEmoji, quarterTomatoEmoji } = this.pluginSetting;
 
 		try {
 			const content = await this.plugin.app.vault.read(file);
 			return constructFileFromContent({
-				fullTomato: this.plugin.settings.tomatoEmoji,
-				halfTomato: this.plugin.settings.halfTomatoEmoji,
-				quarterTomato: this.plugin.settings.quarterTomatoEmoji,
+				fullTomato: tomatoEmoji,
+				halfTomato: halfTomatoEmoji,
+				quarterTomato: quarterTomatoEmoji,
 			}, content, file.name, file.path);
 		} catch (error) {
 			throw new Error(`Error reading file ${file.path}: ${error}`);
@@ -166,18 +165,18 @@ export class SidePaneView extends ItemView {
 	}
 
 	private async updateTaskAfterDuration(task: Task, duration: number): Promise<Task> {
-		if (!this.plugin.settings) throw new Error('Settings not loaded');
-		if (!this.plugin.settings.recordCompletedTomatoes) return task;
+		const { recordCompletedTomatoes, workDuration, tomatoEmoji, halfTomatoEmoji, quarterTomatoEmoji } = this.pluginSetting;
+		if (!recordCompletedTomatoes) return task;
 		
 		const file = this.app.vault.getAbstractFileByPath(task.filePath) as TFile;
 		if (file) {
 			const content = await this.app.vault.read(file);
 			const setting = {
-				fullTomato: this.plugin.settings.tomatoEmoji,
-				halfTomato: this.plugin.settings.halfTomatoEmoji,
-				quarterTomato: this.plugin.settings.quarterTomatoEmoji,
+				fullTomato: tomatoEmoji,
+				halfTomato: halfTomatoEmoji,
+				quarterTomato: quarterTomatoEmoji,
 			};
-			const newTask = substractTomatoCountFromTask(task, duration / this.plugin.settings.workDuration / 60000);
+			const newTask = substractTomatoCountFromTask(task, duration / workDuration / 60000);
 			const newLine = formatTaskToLine(setting, newTask);
 
 			const updatedContent = content.replace(newTask.rawLine, newLine);
@@ -186,5 +185,10 @@ export class SidePaneView extends ItemView {
 			return { ...newTask, rawLine: newLine };
 		}
 		return task;
+	}
+
+	private get pluginSetting() {
+		if (!this.plugin.settings) throw new Error('Settings not loaded');
+		return this.plugin.settings;
 	}
 }

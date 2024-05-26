@@ -6,10 +6,12 @@
 	import type { ChecklistItemEvents } from "./type";
 
 	export let task: Task;
+	export let isOngoing: boolean;
 	export let parentObsidianComponent: Component;
 
 	let taskBodyEl: HTMLDivElement | undefined;
-    let focusButtonEl: HTMLButtonElement | undefined;
+    let taskStartButtonEl: HTMLButtonElement | undefined;
+	let taskStopButtonEl: HTMLButtonElement | undefined;
 
 	$: taskBody = formatTaskToBody($symbolSetting, task);
 	$: renderTaskBody = (taskBodyEl: HTMLElement) => {
@@ -29,7 +31,8 @@
 	})
 
     beforeUpdate(() => {
-        if (focusButtonEl) setIcon(focusButtonEl, "circle-dot");
+        if (taskStartButtonEl) setIcon(taskStartButtonEl, "play-circle");
+		if (taskStopButtonEl) setIcon(taskStopButtonEl, "x-circle");
     });
 
 	afterUpdate(() => {
@@ -45,19 +48,30 @@
 		<input
 			type="checkbox"
 			on:click={() => {
-				dispatch('checklist-item-checkbox-click', { task });
+				dispatch('task-complete', { task });
 			}}
 		/>
 		<div bind:this={taskBodyEl}></div>
 	</label>
-	<button
-		class="clickable-icon"
-		aria-label="Focus on"
-		bind:this={focusButtonEl}
-		on:click={() => {
-			dispatch('checklist-item-focus-switch', { task });
-		}}
-	></button>
+	{#if isOngoing}
+		<button
+			class="clickable-icon"
+			aria-label="Stop task"
+			bind:this={taskStopButtonEl}
+			on:click={() => {
+				dispatch('task-stop', { task });
+			}}
+		></button>
+	{:else}
+		<button
+			class="clickable-icon"
+			aria-label="Start task"
+			bind:this={taskStartButtonEl}
+			on:click={() => {
+				dispatch('task-start', { task });
+			}}
+		></button>
+	{/if}
 </div>
 
 <style>

@@ -55,15 +55,15 @@ export class SidePaneView extends ItemView {
 				leaf.openFile(file);
 			}
 		});
-		this.sidepaneComponent.$on('checklist-item-checkbox-click', async ({ detail }) => {
-			if (detail.isFocused) {
+		this.sidepaneComponent.$on('task-complete', async ({ detail }) => {
+			if (detail.duration != null) {
 				const newTask = await this.updateTaskAfterDuration(detail.task, detail.duration);
 				this.markItemAsDone(newTask);
 			} else {
 				this.markItemAsDone(detail.task);
 			}
 		});
-		this.sidepaneComponent.$on('focus-end', ({ detail: { task, duration } }) => {
+		this.sidepaneComponent.$on('task-stop', ({ detail: { task, duration } }) => {
 			this.updateTaskAfterDuration(task, duration);
 		});
 

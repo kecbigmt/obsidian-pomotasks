@@ -61,7 +61,7 @@
 		on:timer-skip={() => {
 			if (ongoingTaskStartTimestamp && ongoingTask) {
 				const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));
-				dispatch("focus-end", { task: ongoingTask, duration });
+				dispatch("task-stop", { task: ongoingTask, duration });
 			}
 			resetTimer();
 			clearOngoingTask();
@@ -71,10 +71,18 @@
 	<OngoingTask
 		task={ongoingTask}
 		{parentObsidianComponent}
-		on:ongoing-task-clear={({ detail: { task } }) => {
+		on:task-complete={() => {
+			if (ongoingTaskStartTimestamp && ongoingTask) {
+				const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));
+				dispatch("task-complete", { task: ongoingTask, duration });
+			}
+			resetTimer();
+			clearOngoingTask();
+		}}
+		on:task-stop={({ detail: { task } }) => {
 			if (ongoingTaskStartTimestamp) {
 				const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));
-				dispatch("focus-end", { task, duration });
+				dispatch("task-stop", { task, duration });
 			}
 			resetTimer();
 			clearOngoingTask();
@@ -83,26 +91,35 @@
 	<div class="checklist-container">
 		{#each $files as file (file.name)}
 			<Checklist
+				{ongoingTask}
 				{file}
 				{parentObsidianComponent}
 				on:file-open-click
-				on:checklist-item-checkbox-click={({ detail: { task } }) => {
+				on:task-complete={({ detail: { task } }) => {
 					if (ongoingTaskStartTimestamp && ongoingTask && task.name === ongoingTask.name ) {
 						const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));
-						dispatch("checklist-item-checkbox-click", { task, isFocused: true, duration });
+						dispatch("task-complete", { task, duration });
 					} else {
-						dispatch("checklist-item-checkbox-click", { task, isFocused: false, duration: null });
+						dispatch("task-complete", { task, duration: null });
 					}
 					resetTimer();
 					clearOngoingTask();
 				}}
-				on:checklist-item-focus-switch={({ detail: { task } }) => {
+				on:task-start={({ detail: { task } }) => {
 					if (ongoingTaskStartTimestamp && ongoingTask) {
 						const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));
-						dispatch("focus-end", { task: ongoingTask, duration });
+						dispatch("task-stop", { task: ongoingTask, duration });
 					}
 					startTimer();
 					setOngoingTask(task);
+				}}
+				on:task-stop={({ detail: { task } }) => {
+					if (ongoingTaskStartTimestamp && ongoingTask && task.name === ongoingTask.name ) {
+						const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));
+						dispatch("task-stop", { task, duration });
+					}
+					resetTimer();
+					clearOngoingTask();
 				}}
 			/>
 		{/each}

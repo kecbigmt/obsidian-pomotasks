@@ -4,9 +4,10 @@
 	import { sessionSetting, symbolSetting } from "../../../store";
 	import ChecklistItem from "./ChecklistItem.svelte";
 	import type { ChecklistEvents } from "./type";
-	import type { File } from "@/models";
+	import type { File, Task } from "@/models";
 
 	export let file: File;
+	export let ongoingTask: Task | null;
 	export let parentObsidianComponent: Component;
 
 	let fileLinkIcon: HTMLButtonElement | undefined;
@@ -37,12 +38,14 @@
 		{`Total: ${$symbolSetting.fullTomato}x${file.tomatoCount} (${Math.floor((file.tomatoCount * sessionMinutes) / 60)}h ${(file.tomatoCount * sessionMinutes) % 60}m)`}
 	</div>
 	<div class="checklist-list">
-		{#each file.tasks as task (task.name)}
+		{#each file.tasks as task (task.name + "_" + task.filePath)}
 			<ChecklistItem
 				{task}
+				isOngoing={task.name === ongoingTask?.name && task.filePath === ongoingTask?.filePath}
 				{parentObsidianComponent}
-				on:checklist-item-checkbox-click
-				on:checklist-item-focus-switch
+				on:task-complete
+				on:task-start
+				on:task-stop
 			/>
 		{/each}
 	</div>

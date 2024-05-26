@@ -13,7 +13,8 @@ export type TimerEvents = {
 };
 
 export type OngoingTaskEvents = {
-    'ongoing-task-clear': { task: Task };
+    'task-complete': { task: Task };
+    'task-stop': { task: Task };
 };
 
 export type ChecklistEvents = {
@@ -21,6 +22,7 @@ export type ChecklistEvents = {
 } & ChecklistItemEvents;
 
 export type ChecklistItemEvents = {
-    'checklist-item-checkbox-click': { task: Task };
-    'checklist-item-focus-switch': { task: Task };
+    'task-complete': { task: Task };
+    'task-stop': { task: Task };
+    'task-start': { task: Task };
 };

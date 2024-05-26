@@ -9,6 +9,7 @@
     export let task: Task | null = null;
 
 	let labelSlotEl: HTMLElement | undefined;
+    let completeButtonEl: HTMLButtonElement | undefined;
 	let clearIconEl: HTMLButtonElement | undefined;
 
     $: {
@@ -21,46 +22,58 @@
     const dispatch = createEventDispatcher<OngoingTaskEvents>();
 
 	beforeUpdate(() => {
+        if (completeButtonEl) setIcon(completeButtonEl, "check-circle");
 		if (clearIconEl) setIcon(clearIconEl, "x-circle");
 	});
 </script>
 
 <div class="ongoing-task-container">
-	<div class="ongoing-task-label">
-        {#if task}
-            <span bind:this={labelSlotEl}></span>
-        {:else}
-            <span>No task selected</span>
-        {/if}
-    </div>
     {#if task}
-    	<button
-            class="clickable-icon"
-            bind:this={clearIconEl} 
-            aria-label="Clear"
-            on:click={() => {
-                dispatch("ongoing-task-clear", { task });
-            }}
-        ></button>
+        <div class="task-display"> 
+            <input
+                type="checkbox"
+                on:click={() => {
+                    dispatch("task-complete", { task });
+                }}
+            />
+            <div class="ongoing-task-label" bind:this={labelSlotEl}>
+                <p>dummy</p>
+            </div>
+            <button
+                class="clickable-icon"
+                bind:this={clearIconEl} 
+                aria-label="Clear"
+                on:click={() => {
+                    dispatch("task-stop", { task });
+                }}
+            ></button>
+        </div>
+    {:else}
+        No task selected
     {/if}
 </div>
 
 <style>
     .ongoing-task-container {
-        display: flex;
-        align-items: center;
-        justify-content: center;
         padding: 10px;
         border: 1px solid var(--divider-color);
         border-radius: 8px;
+        text-align: center;
+    }
+
+    .ongoing-task-container .task-display {
+        flex-grow: 1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
     }
 
     .ongoing-task-label {
+        min-width: 0;
         font-size: 1rem;
-        text-align: center;
-        
         text-overflow: ellipsis;
         overflow: hidden;
         white-space: nowrap;
     }
+
 </style>

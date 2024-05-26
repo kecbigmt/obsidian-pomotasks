@@ -120,7 +120,7 @@ class ChecklistSettingTab extends PluginSettingTab {
 		containerEl.createEl('h2', { text: 'Checklist Plugin Settings' });
 
 		new Setting(containerEl)
-			.setName('Auto Update')
+			.setName('Auto update')
 			.setDesc('Automatically update checklist when files are modified.')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings?.autoUpdate ?? false)
@@ -131,7 +131,7 @@ class ChecklistSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Tomato Emoji')
+			.setName('Tomato emoji')
 			.setDesc('Emoji to use for representing a full Pomodoro session.')
 			.addText(text => text
 				.setPlaceholder('Enter emoji')
@@ -144,7 +144,7 @@ class ChecklistSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Half Tomato Emoji')
+			.setName('Half tomato emoji')
 			.setDesc('Emoji to use for representing half a Pomodoro session.')
 			.addText(text => text
 				.setPlaceholder('Enter emoji')
@@ -157,7 +157,7 @@ class ChecklistSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Quarter Tomato Emoji')
+			.setName('Quarter tomato emoji')
 			.setDesc('Emoji to use for representing a quarter of a Pomodoro session.')
 			.addText(text => text
 				.setPlaceholder('Enter emoji')
@@ -170,7 +170,7 @@ class ChecklistSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Work Duration')
+			.setName('Work duration')
 			.setDesc('Duration of a work session in minutes.')
 			.addText(text => text
 				.setPlaceholder('Enter minutes')
@@ -186,7 +186,7 @@ class ChecklistSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Break Duration')
+			.setName('Break duration')
 			.setDesc('Duration of a break session in minutes.')
 			.addText(text => text
 				.setPlaceholder('Enter minutes')
@@ -202,7 +202,7 @@ class ChecklistSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Folder Path')
+			.setName('Folder path')
 			.setDesc('Select the folder to search for checklists.')
 			.addDropdown(dropdown => {
 				const folderOptions = this.getFolderOptions();
@@ -219,8 +219,8 @@ class ChecklistSettingTab extends PluginSettingTab {
 			});
 		
 		new Setting(containerEl)
-			.setName('Record Completed Tomatoes (Experimental)')
-			.setDesc('Record completed tomatoes by strike-through lines.')
+			.setName('Record elapsed time (Experimental)')
+			.setDesc('Automatically track and log the time spent on the selected task using emojis. Time is recorded in units of the chosen emojis, and any time less than a full unit will be truncated.')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings?.recordCompletedTomatoes ?? false)
 				.onChange(async (value) => {

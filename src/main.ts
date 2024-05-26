@@ -2,27 +2,32 @@ import { App, Plugin, PluginSettingTab, Setting, TFolder } from 'obsidian';
 import './reset.css';
 
 import { SIDEPANE_VIEW_TYPE, SidePaneView } from './views/SidePaneView';
+import { symbolSetting, sessionSetting } from './store';
+import type { SymbolSetting, SessionSetting, FeatureToggleSetting, FileFilterSetting } from './types';
 
 interface ChecklistPluginSettings {
-	autoUpdate: boolean;
-	tomatoEmoji: string;
-	halfTomatoEmoji: string;
-	quarterTomatoEmoji: string;
-	workDuration: number; // in minutes
-	breakDuration: number; // in minutes
-	folderPath: string; // folder to search for checklists
-	recordCompletedTomatoes: boolean;
+	symbolSetting: SymbolSetting;
+	sessionSetting: SessionSetting;
+	fileFilterSetting: FileFilterSetting;
+	featureToggleSetting: FeatureToggleSetting;
 }
 
 const DEFAULT_SETTINGS: ChecklistPluginSettings = {
-	autoUpdate: true,
-	tomatoEmoji: '🍅',
-	halfTomatoEmoji: '🍓',
-	quarterTomatoEmoji: '🍒',
-	workDuration: 25,
-	breakDuration: 5,
-	folderPath: '',
-	recordCompletedTomatoes: false,
+	symbolSetting: {
+		fullTomato: '🍅',
+		halfTomato: '🍓',
+		quarterTomato: '🍒',
+	},
+	sessionSetting: {
+		workMinutes: 25,
+		breakMinutes: 5,
+	},
+	fileFilterSetting: {
+		folderPath: '',
+	},
+	featureToggleSetting: {
+		elapsedTimeRecording: false,
+	},
 };
 
 export default class ChecklistPlugin extends Plugin {
@@ -38,12 +43,10 @@ export default class ChecklistPlugin extends Plugin {
 		);
 
 		this.addSettingTab(new ChecklistSettingTab(this.app, this));
-
-		if (this.settings?.autoUpdate) {
-			this.registerEvent(this.app.vault.on('modify', (file) => this.findSidePaneView()?.handleFileModified(file)));
-			this.registerEvent(this.app.vault.on('delete', (file) => this.findSidePaneView()?.handleFileDeleted(file)));
-			this.registerEvent(this.app.vault.on('rename', (file, oldPath) => this.findSidePaneView()?.handleFileRenamed(file, oldPath)));
-		}
+		
+		this.registerEvent(this.app.vault.on('modify', (file) => this.findSidePaneView()?.handleFileModified(file)));
+		this.registerEvent(this.app.vault.on('delete', (file) => this.findSidePaneView()?.handleFileDeleted(file)));
+		this.registerEvent(this.app.vault.on('rename', (file, oldPath) => this.findSidePaneView()?.handleFileRenamed(file, oldPath)));
 
 		this.activateView();
 		this.statusBarItem = this.addStatusBarItem();
@@ -81,6 +84,32 @@ export default class ChecklistPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
+	updateSymbolSetting(input: Partial<SymbolSetting>) {
+		if (!this.settings) throw new Error('Settings not loaded');
+		const newSetting = { ...this.settings.symbolSetting, ...input };
+		this.settings.symbolSetting = newSetting;
+		symbolSetting.set(newSetting);
+	}
+
+	updateSessionSetting(input: Partial<SessionSetting>) {
+		if (!this.settings) throw new Error('Settings not loaded');
+		const newSetting = { ...this.settings.sessionSetting, ...input };
+		this.settings.sessionSetting = newSetting;
+		sessionSetting.set(newSetting);
+	}
+
+	updateFileFilterSetting(input: Partial<FileFilterSetting>) {
+		if (!this.settings) throw new Error('Settings not loaded');
+		const newSetting = { ...this.settings.fileFilterSetting, ...input };
+		this.settings.fileFilterSetting = newSetting;
+	}
+
+	updateFeatureToggleSetting(input: Partial<FeatureToggleSetting>) {
+		if (!this.settings) throw new Error('Settings not loaded');
+		const newSetting = { ...this.settings.featureToggleSetting, ...input };
+		this.settings.featureToggleSetting = newSetting;
+	}
+
 	private findSidePaneView(): SidePaneView | undefined {
 		return this.app.workspace.getLeavesOfType(SIDEPANE_VIEW_TYPE).first()?.view as SidePaneView;
 	}
@@ -112,25 +141,13 @@ class ChecklistSettingTab extends PluginSettingTab {
 		containerEl.createEl('h2', { text: 'Checklist Plugin Settings' });
 
 		new Setting(containerEl)
-			.setName('Auto update')
-			.setDesc('Automatically update checklist when files are modified.')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings?.autoUpdate ?? false)
-				.onChange(async (value) => {
-					if (!this.plugin.settings) throw new Error('Settings not loaded');
-					this.plugin.settings.autoUpdate = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
 			.setName('Tomato emoji')
 			.setDesc('Emoji to use for representing a full Pomodoro session.')
 			.addText(text => text
 				.setPlaceholder('Enter emoji')
-				.setValue(this.plugin.settings?.tomatoEmoji ?? '🍅')
+				.setValue(this.plugin.settings?.symbolSetting.fullTomato ?? DEFAULT_SETTINGS.symbolSetting.fullTomato)
 				.onChange(async (value) => {
-					if (!this.plugin.settings) throw new Error('Settings not loaded');
-					this.plugin.settings.tomatoEmoji = value || '🍅';
+					this.plugin.updateSymbolSetting({ fullTomato: value || DEFAULT_SETTINGS.symbolSetting.fullTomato });
 					await this.plugin.saveSettings();
 					this.plugin.reloadAllFiles();
 				}));
@@ -140,10 +157,9 @@ class ChecklistSettingTab extends PluginSettingTab {
 			.setDesc('Emoji to use for representing half a Pomodoro session.')
 			.addText(text => text
 				.setPlaceholder('Enter emoji')
-				.setValue(this.plugin.settings?.halfTomatoEmoji ?? '🍓')
+				.setValue(this.plugin.settings?.symbolSetting.halfTomato ?? DEFAULT_SETTINGS.symbolSetting.halfTomato)
 				.onChange(async (value) => {
-					if (!this.plugin.settings) throw new Error('Settings not loaded');
-					this.plugin.settings.halfTomatoEmoji = value || '🍓';
+					this.plugin.updateSymbolSetting({ halfTomato: value || DEFAULT_SETTINGS.symbolSetting.halfTomato });
 					await this.plugin.saveSettings();
 					this.plugin.reloadAllFiles();
 				}));
@@ -153,10 +169,9 @@ class ChecklistSettingTab extends PluginSettingTab {
 			.setDesc('Emoji to use for representing a quarter of a Pomodoro session.')
 			.addText(text => text
 				.setPlaceholder('Enter emoji')
-				.setValue(this.plugin.settings?.quarterTomatoEmoji ?? '🍒')
+				.setValue(this.plugin.settings?.symbolSetting.quarterTomato ?? DEFAULT_SETTINGS.symbolSetting.quarterTomato)
 				.onChange(async (value) => {
-					if (!this.plugin.settings) throw new Error('Settings not loaded');
-					this.plugin.settings.quarterTomatoEmoji = value || '🍒';
+					this.plugin.updateSymbolSetting({ quarterTomato: value || DEFAULT_SETTINGS.symbolSetting.quarterTomato });
 					await this.plugin.saveSettings();
 					this.plugin.reloadAllFiles();
 				}));
@@ -166,14 +181,12 @@ class ChecklistSettingTab extends PluginSettingTab {
 			.setDesc('Duration of a work session in minutes.')
 			.addText(text => text
 				.setPlaceholder('Enter minutes')
-				.setValue(this.plugin.settings?.workDuration.toString() ?? '25')
+				.setValue(this.plugin.settings?.sessionSetting.workMinutes.toString() ?? '25')
 				.onChange(async (value) => {
 					const numValue = parseInt(value, 10);
 					if (!isNaN(numValue)) {
-						if (!this.plugin.settings) throw new Error('Settings not loaded');
-						this.plugin.settings.workDuration = numValue;
+						this.plugin.updateSessionSetting({ workMinutes: numValue });
 						await this.plugin.saveSettings();
-						this.plugin.reloadAllFiles();
 					}
 				}));
 
@@ -182,14 +195,12 @@ class ChecklistSettingTab extends PluginSettingTab {
 			.setDesc('Duration of a break session in minutes.')
 			.addText(text => text
 				.setPlaceholder('Enter minutes')
-				.setValue(this.plugin.settings?.breakDuration.toString() ?? '5')
+				.setValue(this.plugin.settings?.sessionSetting.breakMinutes.toString() ?? '5')
 				.onChange(async (value) => {
 					const numValue = parseInt(value, 10);
 					if (!isNaN(numValue)) {
-						if (!this.plugin.settings) throw new Error('Settings not loaded');
-						this.plugin.settings.breakDuration = numValue;
+						this.plugin.updateSessionSetting({ breakMinutes: numValue });
 						await this.plugin.saveSettings();
-						this.plugin.reloadAllFiles();
 					}
 				}));
 
@@ -201,10 +212,9 @@ class ChecklistSettingTab extends PluginSettingTab {
 				folderOptions.forEach(folder => {
 					dropdown.addOption(folder, folder);
 				});
-				dropdown.setValue(this.plugin.settings?.folderPath ?? '');
+				dropdown.setValue(this.plugin.settings?.fileFilterSetting.folderPath ?? '');
 				dropdown.onChange(async (value) => {
-					if (!this.plugin.settings) throw new Error('Settings not loaded');
-					this.plugin.settings.folderPath = value;
+					this.plugin.updateFileFilterSetting({ folderPath: value });
 					await this.plugin.saveSettings();
 					this.plugin.reloadAllFiles();
 				});
@@ -214,12 +224,10 @@ class ChecklistSettingTab extends PluginSettingTab {
 			.setName('Record elapsed time (Experimental)')
 			.setDesc('Automatically track and log the time spent on the selected task using emojis. Time is recorded in units of the chosen emojis, and any time less than a full unit will be truncated.')
 			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings?.recordCompletedTomatoes ?? false)
+				.setValue(this.plugin.settings?.featureToggleSetting.elapsedTimeRecording ?? false)
 				.onChange(async (value) => {
-					if (!this.plugin.settings) throw new Error('Settings not loaded');
-					this.plugin.settings.recordCompletedTomatoes = value;
+					this.plugin.updateFeatureToggleSetting({ elapsedTimeRecording: value });
 					await this.plugin.saveSettings();
-					this.plugin.reloadAllFiles();
 				}));
 	}
 }

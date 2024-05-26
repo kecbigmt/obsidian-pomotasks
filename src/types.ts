@@ -25,3 +25,11 @@ export type SymbolSetting = {
     halfTomato: string;
     quarterTomato: string;
 };
+
+export type FeatureToggleSetting = {
+    elapsedTimeRecording: boolean;
+};
+
+export type FileFilterSetting = {
+    folderPath: string; // folder to search for checklists
+};

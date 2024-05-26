@@ -289,5 +289,30 @@ describe('Task', () => {
                 rawLine: '- [ ] ~~🍅~~ Reply to emails',
             });
         });
+
+        it("should round down number to the nearest quarter", () => {
+            // Arrange
+            const task = {
+                name: 'Reply to emails',
+                remainingTomatoCount: 1.5,
+                completedTomatoCount: 0,
+                overCompletedTomatoCount: 0,
+                filePath: 'path/to/file',
+                rawLine: '- [ ] 🍅🍓 Reply to emails',
+            };
+
+            // Act
+            const newTask = substractTomatoCountFromTask(task, 0.3);
+
+            // Assert
+            expect(newTask).toEqual({
+                name: 'Reply to emails',
+                remainingTomatoCount: 1.25,
+                completedTomatoCount: 0.25,
+                overCompletedTomatoCount: 0,
+                filePath: 'path/to/file',
+                rawLine: '- [ ] 🍅🍓 Reply to emails',
+            });
+        });
     });
 });

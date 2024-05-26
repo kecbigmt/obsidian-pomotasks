@@ -71,10 +71,13 @@ export const substractTomatoCountFromTask = (task: Task, count: number): Task =>
     if (count < 0) {
         throw new Error('Count must be greater than or equal to 0');
     }
+	
+	// Round down to the nearest quarter
+	const floorCount = Math.floor(count * 4) / 4;
 
-    const diff = task.remainingTomatoCount - count;
+    const diff = task.remainingTomatoCount - floorCount;
     const remainingTomatoCount = Math.max(0, diff);
-    const completedTomatoCount = diff < 0 ? task.completedTomatoCount + task.remainingTomatoCount : task.completedTomatoCount + count;
+    const completedTomatoCount = diff < 0 ? task.completedTomatoCount + task.remainingTomatoCount : task.completedTomatoCount + floorCount;
     const overCompletedTomatoCount = diff < 0 ? task.overCompletedTomatoCount - diff : task.overCompletedTomatoCount;
 
     return {
@@ -110,6 +113,8 @@ function formatTomatCountIntoEmojis(setting: SymbolSetting, count: number): stri
 	const fullTomatoCount = Math.floor(count);
 	const halfTomatoCount = Math.floor((count % 1) * 2);
 	const quarterTomatoCount = Math.floor((count % 0.5) * 4);
+
+	console.log(`${count} -> ${fullTomatoCount} ${halfTomatoCount} ${quarterTomatoCount}`);
 
 	return (
 		setting.fullTomato.repeat(fullTomatoCount) +

@@ -1,9 +1,9 @@
-import { TFile, ItemView, WorkspaceLeaf, Notice } from 'obsidian';
+import { TFile, ItemView, WorkspaceLeaf, Notice, TAbstractFile } from 'obsidian';
 
 import type ChecklistPlugin from '../../main';
 import SidePaneComponent from './SidePane.svelte';
 import store, { files } from '../../store';
-import { type Task, type File, constructTaskFromLine, substractTomatoCountFromTask, formatTaskToLine } from '@/models';
+import { type Task, type File, substractTomatoCountFromTask, formatTaskToLine, constructFileFromContent } from '@/models';
 
 export const SIDEPANE_VIEW_TYPE = 'sidepane-view';
 
@@ -17,7 +17,6 @@ export class SidePaneView extends ItemView {
 		this.plugin = plugin;
 		this.contentEl.addClass('checklist-view');
 		this.sidepaneContainer = this.contentEl.createDiv();
-		this.updateChecklist = this.updateChecklist.bind(this);
 	}
 
 	getViewType() {
@@ -71,51 +70,88 @@ export class SidePaneView extends ItemView {
 			this.updateTaskAfterDuration(task, duration);
 		});
 
-		this.updateChecklist();
+		this.loadAllFiles();
 	}
 
 	async onClose() {
 		this.sidepaneComponent?.$destroy();
 	}
 
-	async updateChecklist() {
+	async handleFileModified(abstractFile: TAbstractFile) {
+		if (!(abstractFile instanceof TFile)) return;
+		const newFile = await this.loadAndConstructFile(abstractFile);
+
+		files.update((files) => {
+			if (newFile.tasks.length === 0) {
+				return files.filter((file) => file.path !== newFile.path);
+			}
+
+			const index = files.findIndex((file) => file.path === newFile.path);
+			if (index === -1) {
+				files.push(newFile);
+				files.sort((a, b) => a.name.localeCompare(b.name));
+			} else {
+				files[index] = newFile;
+			}
+			return files;
+		});
+	}
+
+	async handleFileDeleted(abstractFile: TAbstractFile) {
+		if (!(abstractFile instanceof TFile)) return;
+		files.update((files) => files.filter((file) => file.path !== abstractFile.path));
+	}
+
+	async handleFileRenamed(abstractFile: TAbstractFile, oldPath: string) {
+		if (!(abstractFile instanceof TFile)) return;
+		const newFile = await this.loadAndConstructFile(abstractFile);
+
+		files.update((files) => {
+			if (newFile.tasks.length === 0) {
+				return files.filter((file) => file.path !== oldPath);
+			}
+
+			const index = files.findIndex((file) => file.path === oldPath);
+			if (index === -1) {
+				files.push(newFile);
+				files.sort((a, b) => a.name.localeCompare(b.name));
+			} else {
+				files[index] = newFile;
+			}
+			return files;
+		});
+	}
+
+	async loadAllFiles() {
 		const markdownFiles = this.plugin.app.vault.getMarkdownFiles();
 		if (!this.plugin.settings) throw new Error('Settings not loaded');
-		const { tomatoEmoji, halfTomatoEmoji, quarterTomatoEmoji, folderPath } = this.plugin.settings;
+		const { folderPath } = this.plugin.settings;
 		const tmpFiles: File[] = [];
-		const emojiSetting = { fullTomato: tomatoEmoji, halfTomato: halfTomatoEmoji, quarterTomato: quarterTomatoEmoji };
 
 		for (const mdFile of markdownFiles) {
-			if (folderPath && !mdFile.path.startsWith(folderPath)) {
-				continue;
-			}
-
-			try {
-				const content = await this.plugin.app.vault.read(mdFile);
-				const lines = content.split('\n');
-				let tasks: Task[] = [];
-				let tomatoCount = 0;
-
-				for (const line of lines) {
-					if (line.match(/^\s*-\s*\[\s\]/)) {
-						const task = constructTaskFromLine(emojiSetting, line, mdFile.path);
-						tasks.push(task);
-						tomatoCount += task.remainingTomatoCount;
-					}
-				}
-
-				if (tasks.length > 0) {
-					tmpFiles.push({ name: mdFile.name.replace(/\.[^/.]+$/, ""), path: mdFile.path, tasks, tomatoCount });
-				}
-			} catch (error) {
-				console.error(`Error reading file ${mdFile.path}:`, error);
-			}
+			if (folderPath && !mdFile.path.startsWith(folderPath)) continue;
+			const file = await this.loadAndConstructFile(mdFile);
+			if (file.tasks.length > 0) tmpFiles.push(file);
 		}
-
 		files.set(tmpFiles.sort((a, b) => a.name.localeCompare(b.name)));
 	}
 
-	async markItemAsDone(task: Task) {
+	private async loadAndConstructFile(file: TFile) {
+		if (!this.plugin.settings) throw new Error('Settings not loaded');
+
+		try {
+			const content = await this.plugin.app.vault.read(file);
+			return constructFileFromContent({
+				fullTomato: this.plugin.settings.tomatoEmoji,
+				halfTomato: this.plugin.settings.halfTomatoEmoji,
+				quarterTomato: this.plugin.settings.quarterTomatoEmoji,
+			}, content, file.name, file.path);
+		} catch (error) {
+			throw new Error(`Error reading file ${file.path}: ${error}`);
+		}
+	}
+	
+	private async markItemAsDone(task: Task) {
 		try {
 			const file = this.plugin.app.vault.getAbstractFileByPath(task.filePath) as TFile;
 
@@ -123,7 +159,6 @@ export class SidePaneView extends ItemView {
 				const content = await this.plugin.app.vault.read(file);
 				const updatedContent = content.replace(task.rawLine, task.rawLine.replace('[ ]', '[x]'));
 				await this.plugin.app.vault.modify(file, updatedContent);
-				this.updateChecklist();
 			}
 		} catch (error) {
 			console.error(`Error updating file ${task.filePath}:`, error);

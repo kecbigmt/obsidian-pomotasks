@@ -40,10 +40,9 @@ export default class ChecklistPlugin extends Plugin {
 		this.addSettingTab(new ChecklistSettingTab(this.app, this));
 
 		if (this.settings?.autoUpdate) {
-			const updateHandler = this.debounce(() => this.updateActiveChecklistView(), 300);
-			this.registerEvent(this.app.vault.on('modify', updateHandler));
-			this.registerEvent(this.app.vault.on('create', updateHandler));
-			this.registerEvent(this.app.vault.on('delete', updateHandler));
+			this.registerEvent(this.app.vault.on('modify', (file) => this.findSidePaneView()?.handleFileModified(file)));
+			this.registerEvent(this.app.vault.on('delete', (file) => this.findSidePaneView()?.handleFileDeleted(file)));
+			this.registerEvent(this.app.vault.on('rename', (file, oldPath) => this.findSidePaneView()?.handleFileRenamed(file, oldPath)));
 		}
 
 		this.activateView();
@@ -70,11 +69,8 @@ export default class ChecklistPlugin extends Plugin {
 		this.app.workspace.revealLeaf(this.app.workspace.getLeavesOfType(SIDEPANE_VIEW_TYPE)[0]);
 	}
 
-	async updateActiveChecklistView() {
-		const view = this.app.workspace.getLeavesOfType(SIDEPANE_VIEW_TYPE).first()?.view as SidePaneView;
-		if (view) {
-			view.updateChecklist();
-		}
+	async reloadAllFiles() {
+		this.findSidePaneView()?.loadAllFiles();
 	}
 
 	async loadSettings() {
@@ -85,12 +81,8 @@ export default class ChecklistPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	debounce(func: () => void, wait: number): () => void {
-		let timeout: number;
-		return () => {
-			clearTimeout(timeout);
-			timeout = window.setTimeout(func, wait);
-		};
+	private findSidePaneView(): SidePaneView | undefined {
+		return this.app.workspace.getLeavesOfType(SIDEPANE_VIEW_TYPE).first()?.view as SidePaneView;
 	}
 }
 
@@ -140,7 +132,7 @@ class ChecklistSettingTab extends PluginSettingTab {
 					if (!this.plugin.settings) throw new Error('Settings not loaded');
 					this.plugin.settings.tomatoEmoji = value || '🍅';
 					await this.plugin.saveSettings();
-					this.plugin.updateActiveChecklistView();
+					this.plugin.reloadAllFiles();
 				}));
 
 		new Setting(containerEl)
@@ -153,7 +145,7 @@ class ChecklistSettingTab extends PluginSettingTab {
 					if (!this.plugin.settings) throw new Error('Settings not loaded');
 					this.plugin.settings.halfTomatoEmoji = value || '🍓';
 					await this.plugin.saveSettings();
-					this.plugin.updateActiveChecklistView();
+					this.plugin.reloadAllFiles();
 				}));
 
 		new Setting(containerEl)
@@ -166,7 +158,7 @@ class ChecklistSettingTab extends PluginSettingTab {
 					if (!this.plugin.settings) throw new Error('Settings not loaded');
 					this.plugin.settings.quarterTomatoEmoji = value || '🍒';
 					await this.plugin.saveSettings();
-					this.plugin.updateActiveChecklistView();
+					this.plugin.reloadAllFiles();
 				}));
 
 		new Setting(containerEl)
@@ -181,7 +173,7 @@ class ChecklistSettingTab extends PluginSettingTab {
 						if (!this.plugin.settings) throw new Error('Settings not loaded');
 						this.plugin.settings.workDuration = numValue;
 						await this.plugin.saveSettings();
-						this.plugin.updateActiveChecklistView();
+						this.plugin.reloadAllFiles();
 					}
 				}));
 
@@ -197,7 +189,7 @@ class ChecklistSettingTab extends PluginSettingTab {
 						if (!this.plugin.settings) throw new Error('Settings not loaded');
 						this.plugin.settings.breakDuration = numValue;
 						await this.plugin.saveSettings();
-						this.plugin.updateActiveChecklistView();
+						this.plugin.reloadAllFiles();
 					}
 				}));
 
@@ -214,7 +206,7 @@ class ChecklistSettingTab extends PluginSettingTab {
 					if (!this.plugin.settings) throw new Error('Settings not loaded');
 					this.plugin.settings.folderPath = value;
 					await this.plugin.saveSettings();
-					this.plugin.updateActiveChecklistView();
+					this.plugin.reloadAllFiles();
 				});
 			});
 		
@@ -227,7 +219,7 @@ class ChecklistSettingTab extends PluginSettingTab {
 					if (!this.plugin.settings) throw new Error('Settings not loaded');
 					this.plugin.settings.recordCompletedTomatoes = value;
 					await this.plugin.saveSettings();
-					this.plugin.updateActiveChecklistView();
+					this.plugin.reloadAllFiles();
 				}));
 	}
 }

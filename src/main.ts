@@ -77,7 +77,11 @@ export default class ChecklistPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const data = await this.loadData();
+		const settings: ChecklistPluginSettings = { ...DEFAULT_SETTINGS, ...data };
+		this.settings = settings;
+		sessionSetting.set(this.settings.sessionSetting);
+		symbolSetting.set(this.settings.symbolSetting);
 	}
 
 	async saveSettings() {

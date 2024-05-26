@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { beforeUpdate, createEventDispatcher } from "svelte";
 	import { Component, setIcon } from "obsidian";
-	import { sessionSetting, emojiSetting } from "../../../store";
+	import { sessionSetting, symbolSetting } from "../../../store";
 	import ChecklistItem from "./ChecklistItem.svelte";
 	import type { ChecklistEvents } from "./type";
 	import type { File } from "@/models";
@@ -34,7 +34,7 @@
 		></button>
 	</div>
 	<div>
-		{`Total: ${$emojiSetting.fullTomato}x${file.tomatoCount} (${Math.floor((file.tomatoCount * sessionMinutes) / 60)}h ${(file.tomatoCount * sessionMinutes) % 60}m)`}
+		{`Total: ${$symbolSetting.fullTomato}x${file.tomatoCount} (${Math.floor((file.tomatoCount * sessionMinutes) / 60)}h ${(file.tomatoCount * sessionMinutes) % 60}m)`}
 	</div>
 	<div class="checklist-list">
 		{#each file.tasks as task (task.name)}

@@ -1,4 +1,4 @@
-import type { EmojiSetting } from '../types';
+import type { SymbolSetting } from '../types';
 
 export type Task = {
 	name: string;
@@ -9,7 +9,7 @@ export type Task = {
 	rawLine: string;
 };
 
-export const constructTaskFromLine = (setting: EmojiSetting, rawLine: string, filePath: string): Task => {
+export const constructTaskFromLine = (setting: SymbolSetting, rawLine: string, filePath: string): Task => {
 	const taskBody = rawLine.replace(/^\s*- \[ \]/, '').trim();
 
 	const { fullTomato, halfTomato, quarterTomato } = setting;
@@ -42,7 +42,7 @@ export const constructTaskFromLine = (setting: EmojiSetting, rawLine: string, fi
 	};
 };
 
-export const formatTaskToBody = (setting: EmojiSetting, task: Task): string => {
+export const formatTaskToBody = (setting: SymbolSetting, task: Task): string => {
     const completedEstimatedTomatoEmojis = formatTomatCountIntoEmojis(setting, task.completedTomatoCount);
     const completedAdditionalTomatoEmojis = formatTomatCountIntoEmojis(setting, task.overCompletedTomatoCount);
     const remainingTomatoEmojis = formatTomatCountIntoEmojis(setting, task.remainingTomatoCount);
@@ -58,7 +58,7 @@ export const formatTaskToBody = (setting: EmojiSetting, task: Task): string => {
     return [completedPart, remainingPart, task.name].filter((part) => part).join(' ');
 }
 
-export const formatTaskToLine = (setting: EmojiSetting, task: Task): string => {
+export const formatTaskToLine = (setting: SymbolSetting, task: Task): string => {
 	const taskBody = formatTaskToBody(setting, task);
 	const startIndex = task.rawLine.indexOf('- [ ] ');
 	const endIndex = startIndex + '- [ ] '.length;
@@ -99,14 +99,14 @@ function splitCompletedTomatoEmojisIntoEstimatedAndAdditional(completedTomatoEmo
 		.map((emojis) => emojis.join('')) as [string, string];
 }
 
-function parseTomatoEmojisIntoCount(setting: EmojiSetting, input: string): number {
+function parseTomatoEmojisIntoCount(setting: SymbolSetting, input: string): number {
 	const fullTomatoCount = (input.match(new RegExp(setting.fullTomato, 'g')) || []).length;
 	const halfTomatoCount = (input.match(new RegExp(setting.halfTomato, 'g')) || []).length;
 	const quarterTomatoCount = (input.match(new RegExp(setting.quarterTomato, 'g')) || []).length;
 	return fullTomatoCount + halfTomatoCount / 2 + quarterTomatoCount / 4;
 }
 
-function formatTomatCountIntoEmojis(setting: EmojiSetting, count: number): string {
+function formatTomatCountIntoEmojis(setting: SymbolSetting, count: number): string {
 	const fullTomatoCount = Math.floor(count);
 	const halfTomatoCount = Math.floor((count % 1) * 2);
 	const quarterTomatoCount = Math.floor((count % 0.5) * 4);

@@ -20,7 +20,7 @@ export type SessionSetting = {
     breakMinutes: number;
 };
 
-export type EmojiSetting = {
+export type SymbolSetting = {
     fullTomato: string;
     halfTomato: string;
     quarterTomato: string;

@@ -1,4 +1,4 @@
-import type { EmojiSetting } from '@/types';
+import type { SymbolSetting } from '@/types';
 import { constructTaskFromLine, type Task } from './Task';
 
 export type File = {
@@ -9,7 +9,7 @@ export type File = {
 };
 
 export const constructFileFromContent = (
-	emojiSetting: EmojiSetting,
+	symbolSetting: SymbolSetting,
 	content: string,
 	fileName: string,
 	filePath: string
@@ -20,7 +20,7 @@ export const constructFileFromContent = (
 
 	for (const line of lines) {
 		if (line.match(/^\s*-\s*\[\s\]/)) {
-			const task = constructTaskFromLine(emojiSetting, line, filePath);
+			const task = constructTaskFromLine(symbolSetting, line, filePath);
 			tasks.push(task);
 			tomatoCount += task.remainingTomatoCount;
 		}

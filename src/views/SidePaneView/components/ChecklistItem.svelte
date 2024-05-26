@@ -2,7 +2,7 @@
 	import { afterUpdate, beforeUpdate, createEventDispatcher, onMount } from "svelte";
 	import { Component, MarkdownRenderer, setIcon } from "obsidian";
 	import { formatTaskToBody, type Task } from "@/models";
-	import { emojiSetting, plugin } from "../../../store";
+	import { symbolSetting, plugin } from "../../../store";
 	import type { ChecklistItemEvents } from "./type";
 
 	export let task: Task;
@@ -11,7 +11,7 @@
 	let taskBodyEl: HTMLDivElement | undefined;
     let focusButtonEl: HTMLButtonElement | undefined;
 
-	$: taskBody = formatTaskToBody($emojiSetting, task);
+	$: taskBody = formatTaskToBody($symbolSetting, task);
 	$: renderTaskBody = (taskBodyEl: HTMLElement) => {
 		MarkdownRenderer.render(
 			$plugin.app,

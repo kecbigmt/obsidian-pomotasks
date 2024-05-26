@@ -11,6 +11,7 @@ interface ChecklistPluginSettings {
 	workDuration: number; // in minutes
 	breakDuration: number; // in minutes
 	folderPath: string; // folder to search for checklists
+	recordCompletedTomatoes: boolean;
 }
 
 const DEFAULT_SETTINGS: ChecklistPluginSettings = {
@@ -20,7 +21,8 @@ const DEFAULT_SETTINGS: ChecklistPluginSettings = {
 	quarterTomatoEmoji: '🍒',
 	workDuration: 25,
 	breakDuration: 5,
-	folderPath: ''
+	folderPath: '',
+	recordCompletedTomatoes: false,
 };
 
 export default class ChecklistPlugin extends Plugin {
@@ -215,5 +217,17 @@ class ChecklistSettingTab extends PluginSettingTab {
 					this.plugin.updateActiveChecklistView();
 				});
 			});
+		
+		new Setting(containerEl)
+			.setName('Record Completed Tomatoes (Experimental)')
+			.setDesc('Record completed tomatoes by strike-through lines.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings?.recordCompletedTomatoes ?? false)
+				.onChange(async (value) => {
+					if (!this.plugin.settings) throw new Error('Settings not loaded');
+					this.plugin.settings.recordCompletedTomatoes = value;
+					await this.plugin.saveSettings();
+					this.plugin.updateActiveChecklistView();
+				}));
 	}
 }

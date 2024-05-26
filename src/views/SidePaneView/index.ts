@@ -132,6 +132,8 @@ export class SidePaneView extends ItemView {
 
 	private async updateTaskAfterDuration(task: Task, duration: number): Promise<Task> {
 		if (!this.plugin.settings) throw new Error('Settings not loaded');
+		if (!this.plugin.settings.recordCompletedTomatoes) return task;
+		
 		const file = this.app.vault.getAbstractFileByPath(task.filePath) as TFile;
 		if (file) {
 			const content = await this.app.vault.read(file);

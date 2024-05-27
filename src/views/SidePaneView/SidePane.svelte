@@ -4,9 +4,10 @@
 	import OngoingTask from "./components/OngoingTask.svelte";
 	import Timer from "./components/Timer.svelte";
 	import Checklist from "./components/Checklist.svelte";
-	import { files } from "../../store";
+	import { files, sessionMode, sessionSetting, timerState } from "../../store";
 	import type { Task } from "@/models";
 	import type { SidePaneEvents } from "./types";
+	import { resumeTimer, startNewTimer } from "@/models/TimerState";
 
 	export let parentObsidianComponent: Component;
 
@@ -28,24 +29,24 @@
 		return [...ongoingTaskDurationBatch, Date.now() - startTimestamp];
 	};
 
-	const startTimer = () => {
+	const startOngoingTaskTimer = () => {
 		ongoingTaskStartTimestamp = Date.now();
 		ongoingTaskDurationBatch = [];
 	};
 
-	const pauseTimer = () => {
+	const pauseOngoingTaskTimer = () => {
 		if (ongoingTaskStartTimestamp) {
 			ongoingTaskDurationBatch = appendDurationFrom(ongoingTaskStartTimestamp);
 			ongoingTaskStartTimestamp = null;
 		}
 	};
 
-	const resetTimer = () => {
+	const resetOngoingTaskTimer = () => {
 		ongoingTaskStartTimestamp = null;
 		ongoingTaskDurationBatch = [];
 	};
 
-	const resumeTimer = () => {
+	const resumeOngoingTaskTimer = () => {
 		ongoingTaskStartTimestamp = Date.now();
 	};
 
@@ -54,16 +55,16 @@
 
 <div class="sidepane">
 	<Timer
-		on:timer-start={startTimer}
-		on:timer-pause={pauseTimer}
-		on:timer-resume={resumeTimer}
-		on:timer-reset={resetTimer}
+		on:timer-start={startOngoingTaskTimer}
+		on:timer-pause={pauseOngoingTaskTimer}
+		on:timer-resume={resumeOngoingTaskTimer}
+		on:timer-reset={resetOngoingTaskTimer}
 		on:timer-skip={() => {
 			if (ongoingTaskStartTimestamp && ongoingTask) {
 				const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));
 				dispatch("task-stop", { task: ongoingTask, duration });
 			}
-			resetTimer();
+			resetOngoingTaskTimer();
 			clearOngoingTask();
 		}}
 		on:timer-run-out
@@ -76,7 +77,7 @@
 				const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));
 				dispatch("task-complete", { task: ongoingTask, duration });
 			}
-			resetTimer();
+			resetOngoingTaskTimer();
 			clearOngoingTask();
 		}}
 		on:task-stop={({ detail: { task } }) => {
@@ -84,7 +85,7 @@
 				const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));
 				dispatch("task-stop", { task, duration });
 			}
-			resetTimer();
+			resetOngoingTaskTimer();
 			clearOngoingTask();
 		}}
 	/>
@@ -102,7 +103,7 @@
 					} else {
 						dispatch("task-complete", { task, duration: null });
 					}
-					resetTimer();
+					resetOngoingTaskTimer();
 					clearOngoingTask();
 				}}
 				on:task-start={({ detail: { task } }) => {
@@ -110,7 +111,13 @@
 						const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));
 						dispatch("task-stop", { task: ongoingTask, duration });
 					}
-					startTimer();
+					startOngoingTaskTimer();
+					sessionMode.set("work");
+					timerState.update((state) => {
+						if (state.type === 'paused') return resumeTimer(state);
+						if (state.type === 'running') return state;
+						return startNewTimer($sessionSetting.workMinutes * 60000);
+					});
 					setOngoingTask(task);
 				}}
 				on:task-stop={({ detail: { task } }) => {
@@ -118,7 +125,7 @@
 						const duration = sum(appendDurationFrom(ongoingTaskStartTimestamp));
 						dispatch("task-stop", { task, duration });
 					}
-					resetTimer();
+					resetOngoingTaskTimer();
 					clearOngoingTask();
 				}}
 			/>

@@ -2,8 +2,9 @@
 	import { setIcon } from "obsidian";
 	import { beforeUpdate, createEventDispatcher, onDestroy } from "svelte";
 
-	import { plugin, sessionMode, timerStatus, sessionSetting } from "@/store";
+	import { plugin, sessionMode, sessionSetting, timerState } from "@/store";
 	import type { TimerEvents } from "./type";
+	import { markTimerAsNotified, pauseTimer, resetTimer, resumeTimer, startNewTimer } from "@/models/TimerState";
 
 	const dispatch = createEventDispatcher<TimerEvents>();
 
@@ -17,41 +18,26 @@
 	let timerInterval: number | undefined;
 	let lastTick: number;
 
-	type TimerState =
-		| {
-				type: "running";
-				endsAt: number;
-				pauseAt: null;
-				notificationTriggered: boolean;
-		  }
-		| {
-				type: "paused";
-				endsAt: number;
-				pauseAt: number;
-				notificationTriggered: boolean;
-		  }
-		| null;
-	let timerState: TimerState = null;
-	$: {
-		timerStatus.set(timerState?.type ?? 'stopped');
-	}
-	
 	$: timeboxDuration =
 		($sessionMode === "work" ? $sessionSetting.workMinutes : $sessionSetting.breakMinutes) * 60000;
 	$: remainingDuration = timeboxDuration;
 	$: minutes = Math.floor(Math.abs(remainingDuration) / 60000);
 	$: seconds = Math.floor((Math.abs(remainingDuration) % 60000) / 1000);
 	$: displayRemainingTime = `${remainingDuration < 0 ? "-" : ""}${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-
+	
 	$: {
 		lastTick;
-		timerState;
-		remainingDuration = timerState?.type === "running"
-			? timerState.endsAt - Date.now()
-			: timerState?.type === "paused"
-				? timerState.endsAt - timerState.pauseAt
+		remainingDuration = $timerState.type === "running"
+			? $timerState.endsAt - Date.now()
+			: $timerState.type === "paused"
+				? $timerState.endsAt - $timerState.pauseAt
 				: timeboxDuration;
 	};
+
+	$: {
+		clearInterval();
+		if($timerState.type === 'running') timerInterval = window.setInterval(tickTimer, 1000);
+	}
 
 	$: {
 		$plugin.statusBarItem?.setText(`${$sessionMode === 'work' ? '🏃' : '☕️'} ${displayRemainingTime}`);
@@ -60,6 +46,15 @@
 	const clearInterval = () => {
 		if (timerInterval) window.clearInterval(timerInterval);
 		timerInterval = undefined;
+	};
+
+	const tickTimer = () => {
+		lastTick = Date.now();
+		if ($timerState.type === 'running' && !$timerState.notificationTriggered && remainingDuration <= 0) {
+			timerState.update((state) => markTimerAsNotified(state));
+			dispatch("timer-run-out", { sessionMode: $sessionMode, displayRemainingTime });
+			clearInterval();
+		}
 	};
 
 	beforeUpdate(() => {
@@ -86,25 +81,16 @@
 		<button
 			class="timer-button"
 			on:click={() => {
-				timerState = null;
-				clearInterval();
+				timerState.set(resetTimer());
 				dispatch("timer-reset", { sessionMode: $sessionMode, displayRemainingTime });
 			}}
 			bind:this={resetButtonEl}
 		></button>
-		{#if timerState?.type === "running"}
+		{#if $timerState.type === "running"}
 			<button
 				class="timer-button"
 				on:click={() => {
-					if (!timerState) return;
-
-					timerState = {
-						type: "paused",
-						endsAt: timerState.endsAt,
-						pauseAt: Date.now(),
-						notificationTriggered: timerState.notificationTriggered,
-					};
-					clearInterval();
+					timerState.set(pauseTimer($timerState));
 					dispatch("timer-pause", {
 						sessionMode: $sessionMode,
 						displayRemainingTime,
@@ -116,50 +102,19 @@
 			<button
 				class="timer-button"
 				on:click={() => {
-					if (timerState?.type === "paused") {
-						timerState = {
-							type: "running",
-							endsAt:
-								timerState.endsAt +
-								(Date.now() - timerState.pauseAt),
-							pauseAt: null,
-							notificationTriggered:
-								timerState.notificationTriggered,
-						};
+					if ($timerState.type === "paused") {
+						timerState.set(resumeTimer($timerState));
 						dispatch("timer-resume", {
 							sessionMode: $sessionMode,
 							displayRemainingTime,
 						});
 					} else {
-						timerState = {
-							type: "running",
-							endsAt: Date.now() + remainingDuration,
-							pauseAt: null,
-							notificationTriggered: false,
-						};
+						timerState.set(startNewTimer(remainingDuration));
 						dispatch("timer-start", {
 							sessionMode: $sessionMode,
 							displayRemainingTime,
 						});
 					}
-
-					clearInterval();
-					timerInterval = window.setInterval(() => {
-						lastTick = Date.now();
-						if (
-							timerState?.type === "running" &&
-							!timerState.notificationTriggered &&
-							remainingDuration <= 0
-						) {
-							timerState = {
-								type: "running",
-								endsAt: timerState.endsAt,
-								pauseAt: null,
-								notificationTriggered: true,
-							};
-							dispatch("timer-run-out", { sessionMode: $sessionMode, displayRemainingTime });
-						}
-					}, 1000);
 				}}
 				bind:this={startButtonEl}
 			></button>
@@ -167,8 +122,7 @@
 		<button
 			class="timer-button"
 			on:click={() => {
-				timerState = null;
-				clearInterval();
+				timerState.set(resetTimer());
 				sessionMode.update((cur) => cur === "work" ? "break" : "work");
 				dispatch("timer-skip", { sessionMode: $sessionMode, displayRemainingTime });
 			}}

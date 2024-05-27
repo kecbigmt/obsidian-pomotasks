@@ -114,8 +114,6 @@ function formatTomatCountIntoEmojis(setting: SymbolSetting, count: number): stri
 	const halfTomatoCount = Math.floor((count % 1) * 2);
 	const quarterTomatoCount = Math.floor((count % 0.5) * 4);
 
-	console.log(`${count} -> ${fullTomatoCount} ${halfTomatoCount} ${quarterTomatoCount}`);
-
 	return (
 		setting.fullTomato.repeat(fullTomatoCount) +
 		setting.halfTomato.repeat(halfTomatoCount) +

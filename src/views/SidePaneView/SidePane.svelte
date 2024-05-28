@@ -1,19 +1,26 @@
 <script lang="ts">
 	import { createEventDispatcher } from "svelte";
 	import type { Component } from "obsidian";
+	import { files, lastTick, sessionMode, sessionSetting, timerState } from "@/store";
+	import type { Task } from "@/models";
+	import { resumeTimer, startNewTimer } from "@/models/TimerState";
+	import type { SidePaneEvents } from "./types";
 	import OngoingTask from "./components/OngoingTask.svelte";
 	import Timer from "./components/Timer.svelte";
 	import Checklist from "./components/Checklist.svelte";
-	import { files, sessionMode, sessionSetting, timerState } from "../../store";
-	import type { Task } from "@/models";
-	import type { SidePaneEvents } from "./types";
-	import { resumeTimer, startNewTimer } from "@/models/TimerState";
 
 	export let parentObsidianComponent: Component;
 
 	let ongoingTask: Task | null = null;
 	let ongoingTaskStartTimestamp: number | null = null;
 	let ongoingTaskDurationBatch: number[] = [];
+
+	let ongoingTaskDuration: number;
+	$: {
+		$lastTick;
+		const currentDuration = ongoingTaskStartTimestamp ? Date.now() - ongoingTaskStartTimestamp : 0;
+		ongoingTaskDuration = currentDuration + sum(ongoingTaskDurationBatch);
+	}
 
 	const dispatch = createEventDispatcher<SidePaneEvents>();
 
@@ -71,6 +78,7 @@
 	/>
 	<OngoingTask
 		task={ongoingTask}
+		duration={ongoingTaskDuration}
 		{parentObsidianComponent}
 		on:task-complete={() => {
 			if (ongoingTaskStartTimestamp && ongoingTask) {

@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { Component, MarkdownRenderer, setIcon } from "obsidian";
 	import { beforeUpdate, createEventDispatcher } from "svelte";
-	import { plugin } from "../../../store";
-	import type { Task } from "@/models";
+	import { plugin, sessionSetting, symbolSetting } from "../../../store";
+	import { formatTomatCountIntoEmojis, type Task } from "@/models";
 	import type { OngoingTaskEvents } from "./type";
 
     export let parentObsidianComponent: Component;
     export let task: Task | null = null;
+    export let duration: number;
 
 	let labelSlotEl: HTMLElement | undefined;
     let completeButtonEl: HTMLButtonElement | undefined;
@@ -25,6 +26,8 @@
         if (completeButtonEl) setIcon(completeButtonEl, "check-circle");
 		if (clearIconEl) setIcon(clearIconEl, "x-circle");
 	});
+    
+    $: tomatoEmojis = formatTomatCountIntoEmojis($symbolSetting, duration/60000/$sessionSetting.workMinutes);
 </script>
 
 <div class="ongoing-task-container">
@@ -36,7 +39,11 @@
                     dispatch("task-complete", { task });
                 }}
             />
-            <div class="ongoing-task-label" bind:this={labelSlotEl}>
+            <div 
+                class="ongoing-task-label" 
+                bind:this={labelSlotEl} 
+                aria-label={tomatoEmojis}
+            >
                 <p>dummy</p>
             </div>
             <button

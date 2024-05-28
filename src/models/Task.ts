@@ -109,7 +109,7 @@ function parseTomatoEmojisIntoCount(setting: SymbolSetting, input: string): numb
 	return fullTomatoCount + halfTomatoCount / 2 + quarterTomatoCount / 4;
 }
 
-function formatTomatCountIntoEmojis(setting: SymbolSetting, count: number): string {
+export function formatTomatCountIntoEmojis(setting: SymbolSetting, count: number): string {
 	const fullTomatoCount = Math.floor(count);
 	const halfTomatoCount = Math.floor((count % 1) * 2);
 	const quarterTomatoCount = Math.floor((count % 0.5) * 4);

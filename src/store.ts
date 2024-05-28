@@ -10,3 +10,4 @@ export const symbolSetting = writable<SymbolSetting>({ fullTomato: '🍅', halfT
 export const timerState = writable<TimerState>(resetTimer());
 export const sessionMode = writable<'work' | 'break'>('work');
 export const files = writable<File[]>([]);
+export const lastTick = writable<number>(Date.now());

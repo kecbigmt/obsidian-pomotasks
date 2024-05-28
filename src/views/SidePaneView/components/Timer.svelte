@@ -2,7 +2,7 @@
 	import { setIcon } from "obsidian";
 	import { beforeUpdate, createEventDispatcher, onDestroy } from "svelte";
 
-	import { plugin, sessionMode, sessionSetting, timerState } from "@/store";
+	import { lastTick, plugin, sessionMode, sessionSetting, timerState } from "@/store";
 	import type { TimerEvents } from "./type";
 	import { markTimerAsNotified, pauseTimer, resetTimer, resumeTimer, startNewTimer } from "@/models/TimerState";
 
@@ -16,7 +16,6 @@
 
 
 	let timerInterval: number | undefined;
-	let lastTick: number;
 
 	$: timeboxDuration =
 		($sessionMode === "work" ? $sessionSetting.workMinutes : $sessionSetting.breakMinutes) * 60000;
@@ -26,7 +25,7 @@
 	$: displayRemainingTime = `${remainingDuration < 0 ? "-" : ""}${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 	
 	$: {
-		lastTick;
+		$lastTick;
 		remainingDuration = $timerState.type === "running"
 			? $timerState.endsAt - Date.now()
 			: $timerState.type === "paused"
@@ -49,7 +48,7 @@
 	};
 
 	const tickTimer = () => {
-		lastTick = Date.now();
+		lastTick.set(Date.now());
 		if ($timerState.type === 'running' && !$timerState.notificationTriggered && remainingDuration <= 0) {
 			timerState.update((state) => markTimerAsNotified(state));
 			dispatch("timer-run-out", { sessionMode: $sessionMode, displayRemainingTime });

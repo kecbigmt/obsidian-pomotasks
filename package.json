@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-pomotasks",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Pomodoro-based task tracker (Obsidian plugin)",
 	"main": "main.js",
 	"scripts": {
